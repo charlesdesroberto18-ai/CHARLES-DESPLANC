@@ -1,0 +1,7 @@
+{
+  "name": "Copy of EntregaPro",
+  "description": "O painel de controle definitivo para entregadores. Organize ganhos, controle gastos com combustível e manutenção, defina metas e receba dicas inteligentes com IA para otimizar sua rotina.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
