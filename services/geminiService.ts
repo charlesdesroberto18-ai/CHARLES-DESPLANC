@@ -1,5 +1,7 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { Transaction, Category, Shift, Goal } from "../types";
+
+// --- EXISTING ADVISOR CODE ---
 
 const SYSTEM_INSTRUCTION = `
 Você é o CFO (Diretor Financeiro) e Estrategista Logístico de um entregador profissional (iFood/Uber).
@@ -40,7 +42,7 @@ export const getFinancialAdvice = async (
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    // 1. Process Financial Data
+    // Process Financial Data
     const incomeTx = transactions.filter(t => t.type === 'income');
     const expenseTx = transactions.filter(t => t.type === 'expense');
     
@@ -48,7 +50,7 @@ export const getFinancialAdvice = async (
     const totalExpense = expenseTx.reduce((acc, t) => acc + t.amount, 0);
     const netProfit = totalIncome - totalExpense;
 
-    // 2. Process Operational Data from Shifts
+    // Process Operational Data
     const completedShifts = shifts.filter(s => s.endTime);
     const totalSeconds = completedShifts.reduce((acc, s) => acc + (s.durationSeconds || 0), 0);
     const totalHours = totalSeconds / 3600;
@@ -61,7 +63,7 @@ export const getFinancialAdvice = async (
     const deliveriesPerHour = totalHours > 0 ? (totalDeliveries / totalHours).toFixed(1) : "0.0";
     const avgTicket = totalDeliveries > 0 ? (totalIncome / totalDeliveries).toFixed(2) : "0.00";
 
-    // Maintenance Context logic
+    // Maintenance Context
     const lastMaintenance = transactions
       .filter(t => t.category === Category.MAINTENANCE && t.maintenanceMetadata)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
@@ -80,12 +82,9 @@ export const getFinancialAdvice = async (
         - KM Atual Estimado: ${currentEstimatedOdometer.toFixed(1)} km
         - Próxima revisão prevista: ${nextServiceAt} km
         - KM Restante para revisão: ${kmRemaining.toFixed(1)} km
-        
-        ATENÇÃO: Se o KM restante for baixo (< 500km), ALERTE O USUÁRIO URGENTEMENTE no plano de ação.
         `;
     }
 
-    // Recent History
     const recentHistory = transactions.slice(-15).map(t => 
       `- ${t.date.split('T')[0]}: ${t.type === 'income' ? '💰' : '💸'} R$${t.amount} (${t.category})`
     ).join('\n');
@@ -118,8 +117,9 @@ export const getFinancialAdvice = async (
     Analise especificamente a eficiência do KM rodado e o volume de entregas.
     `;
 
+    // Updated to gemini-3-pro-preview for deeper reasoning on complex reports
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
@@ -134,36 +134,114 @@ export const getFinancialAdvice = async (
   }
 };
 
-export const getDailyMotivation = async (): Promise<string> => {
-  try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    const prompt = `
-    Gere uma frase curta (máximo 2 frases), motivacional e impactante para um entregador de moto que está começando o dia de trabalho.
-    
-    PERSONA: Você é um parceiro de estrada experiente, um irmão de corre.
-    TOM DE VOZ:
-    - Use gírias leves de motoboy/entregador (ex: corre, marcha, foguete, abençoado, guerreiro).
-    - Pode ter um toque de espiritualidade/fé (proteção divina, Deus no comando), mas sem ser religioso demais.
-    - Foco na batalha, na segurança, em fazer dinheiro e voltar bem pra casa.
-    - NÃO use frases clichês de coach ou LinkedIn. Seja rua, seja real.
-    
-    Exemplos de estilo (NÃO COPIE, CRIE NOVO):
-    - "Capacete fechado e Deus na proteção. O asfalto é nosso escritório, marcha nas entregas!"
-    - "Foguete não tem ré, parceiro. Foco na meta e cuidado nos corredores que a família te espera."
-    `;
+// --- NEW FEATURES ---
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        temperature: 1.0, // High creativity
-      }
-    });
+// 1. RECEIPT SCANNER (VISION)
+export const analyzeReceiptFromImage = async (base64Image: string): Promise<{
+    amount?: number;
+    category?: Category;
+    date?: string;
+    description?: string;
+}> => {
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: {
+                parts: [
+                    { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
+                    { text: "Analise esta imagem de recibo/nota fiscal. Extraia: valor total (número), data (ISO string), categoria sugerida (Combustível, Alimentação, Manutenção ou Outros) e nome do estabelecimento." }
+                ]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        amount: { type: Type.NUMBER },
+                        category: { type: Type.STRING, enum: [Category.FUEL, Category.FOOD, Category.MAINTENANCE, Category.OTHER] },
+                        date: { type: Type.STRING },
+                        merchantName: { type: Type.STRING }
+                    },
+                    required: ["amount", "category"]
+                }
+            }
+        });
 
-    return response.text || "Marcha no progresso e Deus na proteção. Bom corre!";
-  } catch (error) {
-    console.error("Error fetching motivation:", error);
-    return "Foco na meta e cuidado na pista. Bom trabalho, guerreiro!";
-  }
+        const text = response.text;
+        if (!text) return {};
+        
+        const data = JSON.parse(text);
+        return {
+            amount: data.amount,
+            category: data.category as Category,
+            date: data.date,
+            description: data.merchantName ? `Gasto em ${data.merchantName}` : undefined
+        };
+    } catch (error) {
+        console.error("Receipt analysis failed", error);
+        return {};
+    }
+};
+
+// 2. MARKET INTELLIGENCE (GROUNDING)
+export const searchMarketIntelligence = async (query: string): Promise<{text: string, sources: any[]}> => {
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-pro-image-preview',
+            contents: query,
+            config: {
+                tools: [{ googleSearch: {} }]
+            }
+        });
+
+        return {
+            text: response.text || "Sem resposta.",
+            sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || []
+        };
+    } catch (error) {
+        console.error("Search failed", error);
+        return { text: "Erro ao buscar informações. Tente novamente.", sources: [] };
+    }
+};
+
+// 3. FIND PLACES NEARBY (MAPS GROUNDING)
+export const findNearbyPlaces = async (query: string, location?: {lat: number, lng: number}): Promise<{text: string, sources: any[]}> => {
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        
+        const config: any = {
+            tools: [{ googleMaps: {} }],
+        };
+
+        // If location is provided, we pass it to the retrieval config for better grounding
+        if (location) {
+            config.toolConfig = {
+                retrievalConfig: {
+                    latLng: {
+                        latitude: location.lat,
+                        longitude: location.lng
+                    }
+                }
+            };
+        }
+
+        // Use gemini-2.5-flash for Maps tasks as requested
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: query,
+            config: config
+        });
+
+        return {
+            text: response.text || "Nenhum local encontrado.",
+            sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || []
+        };
+    } catch (error) {
+        console.error("Maps search failed", error);
+        return { text: "Erro ao buscar locais no mapa.", sources: [] };
+    }
 };

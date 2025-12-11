@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Transaction, Shift, Goal } from '../types';
-import { getFinancialAdvice } from '../services/geminiService';
-import { Sparkles, RefreshCw, Printer, Share2, TrendingUp, MapPin, DollarSign } from 'lucide-react';
+import { getFinancialAdvice, searchMarketIntelligence, findNearbyPlaces } from '../services/geminiService';
+import { Sparkles, RefreshCw, Printer, Share2, TrendingUp, MapPin, DollarSign, Globe, Search, ArrowRight, ExternalLink, Loader2, Navigation } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface Props {
@@ -11,8 +11,19 @@ interface Props {
 }
 
 export const GeminiAdvisor: React.FC<Props> = ({ transactions, shifts, goals = [] }) => {
+  const [activeTab, setActiveTab] = useState<'report' | 'market' | 'map'>('report');
   const [advice, setAdvice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // Market Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResult, setSearchResult] = useState<{text: string, sources: any[]} | null>(null);
+  const [searching, setSearching] = useState(false);
+
+  // Map Search State
+  const [mapQuery, setMapQuery] = useState('');
+  const [mapResult, setMapResult] = useState<{text: string, sources: any[]} | null>(null);
+  const [mapSearching, setMapSearching] = useState(false);
 
   // Calculate metrics locally for display
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
@@ -22,29 +33,74 @@ export const GeminiAdvisor: React.FC<Props> = ({ transactions, shifts, goals = [
   const profitPerKm = totalKm > 0 ? netProfit / totalKm : 0;
 
   const handleGetAdvice = async () => {
-    // Check if we have enough data (either transactions or completed shifts)
     if (transactions.length < 3 && shifts.length < 1) {
-      setAdvice("### 📉 Dados Insuficientes\n\nPara gerar o **Relatório Executivo** completo, o sistema precisa de mais dados.\n\n**Ação Recomendada:**\n1. Finalize pelo menos 1 turno completo registrando KM e entregas.\n2. Registre seus gastos de hoje.");
+      setAdvice("### 📉 Dados Insuficientes\n\nPara gerar o **Relatório Executivo** completo, o sistema precisa de mais dados.\n\n**Ação Recomendada:**\n1. Finalize pelo menos 1 turno completo.\n2. Registre seus gastos de hoje.");
       return;
     }
-    
     setLoading(true);
-    await new Promise(r => setTimeout(r, 800)); 
     const result = await getFinancialAdvice(transactions, shifts, goals);
     setAdvice(result);
     setLoading(false);
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleMarketSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    
+    setSearching(true);
+    const result = await searchMarketIntelligence(searchQuery);
+    setSearchResult(result);
+    setSearching(false);
   };
+
+  const handleMapSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mapQuery.trim()) return;
+
+    setMapSearching(true);
+    
+    // Get user location for context
+    let location = undefined;
+    if ('geolocation' in navigator) {
+        try {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+            });
+            location = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+            };
+        } catch (e) {
+            console.warn("Could not get location", e);
+        }
+    }
+
+    const result = await findNearbyPlaces(mapQuery, location);
+    setMapResult(result);
+    setMapSearching(false);
+  };
+
+  const predefinedQueries = [
+    "Preço médio da gasolina em SP hoje?",
+    "Eventos em São Paulo hoje à noite?",
+    "Vai chover hoje à tarde?",
+    "Melhores regiões para entrega sexta à noite"
+  ];
+
+  const predefinedMapQueries = [
+    "Postos de gasolina baratos por perto",
+    "Restaurantes abertos agora",
+    "Oficinas de moto próximas",
+    "Áreas de descanso para entregadores"
+  ];
+
+  const handlePrint = () => window.print();
 
   return (
     <div className="p-4 h-full flex flex-col pb-24 animate-fade-in bg-gray-50">
-      {/* Header Profissional */}
-      <div className="mb-6 bg-slate-900 text-white p-6 rounded-2xl shadow-xl shadow-slate-300 relative overflow-hidden print:hidden">
+      {/* Header */}
+      <div className="mb-4 bg-slate-900 text-white p-6 rounded-2xl shadow-xl shadow-slate-300 relative overflow-hidden print:hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600 opacity-20 rounded-full -mr-20 -mt-20 blur-3xl"></div>
-        
         <div className="relative z-10">
             <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
@@ -53,142 +109,285 @@ export const GeminiAdvisor: React.FC<Props> = ({ transactions, shifts, goals = [
                     </div>
                     <div>
                         <h2 className="text-xl font-bold">EntregaPro Intelligence</h2>
-                        <p className="text-indigo-300 text-[10px] font-bold uppercase tracking-widest">Consultoria Executiva</p>
+                        <p className="text-indigo-300 text-[10px] font-bold uppercase tracking-widest">Consultoria & Mercado</p>
                     </div>
-                </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4 mt-4 border-t border-white/10 pt-4">
-                <div>
-                    <span className="block text-slate-400 text-xs font-medium">Motor de IA</span>
-                    <span className="text-sm font-bold text-white flex items-center gap-1">Gemini 2.5 Flash <ZapIcon /></span>
-                </div>
-                <div>
-                    <span className="block text-slate-400 text-xs font-medium">Foco</span>
-                    <span className="text-sm font-bold text-white">Lucratividade</span>
                 </div>
             </div>
         </div>
       </div>
 
-      {/* Empty State */}
-      {!advice && !loading && (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-white rounded-2xl border border-dashed border-gray-300 shadow-sm print:hidden">
-          <div className="bg-indigo-50 p-6 rounded-full mb-6 text-indigo-600 animate-pulse-slow">
-             <TrendingUp size={48} />
-          </div>
-          <h3 className="text-xl font-bold text-gray-800 mb-2">Análise Preditiva</h3>
-          <p className="text-gray-500 text-sm mb-8 leading-relaxed max-w-xs mx-auto">
-            Descubra seu "Score de Eficiência" e veja projeções de ganhos para o final do mês baseados no seu ritmo atual.
-          </p>
-          <button
-            onClick={handleGetAdvice}
-            className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold shadow-lg shadow-slate-200 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
-          >
-            <Sparkles size={20} className="text-yellow-400" />
-            Gerar Relatório Executivo
-          </button>
-        </div>
-      )}
+      {/* Tabs */}
+      <div className="flex p-1 bg-gray-200 rounded-xl mb-4 print:hidden overflow-x-auto">
+        <button 
+            onClick={() => setActiveTab('report')}
+            className={`flex-1 py-2 px-2 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === 'report' ? 'bg-white text-slate-900 shadow-sm' : 'text-gray-500'}`}
+        >
+            <TrendingUp size={16} /> Relatório
+        </button>
+        <button 
+            onClick={() => setActiveTab('market')}
+            className={`flex-1 py-2 px-2 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === 'market' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}
+        >
+            <Globe size={16} /> Web
+        </button>
+        <button 
+            onClick={() => setActiveTab('map')}
+            className={`flex-1 py-2 px-2 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === 'map' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}
+        >
+            <MapPin size={16} /> Mapa
+        </button>
+      </div>
 
-      {/* Loading State */}
-      {loading && (
-        <div className="flex-1 flex flex-col items-center justify-center space-y-8 print:hidden">
-          <div className="relative">
-            <div className="w-20 h-20 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
-            <div className="absolute inset-0 flex items-center justify-center">
-                <Sparkles size={24} className="text-indigo-600" />
-            </div>
-          </div>
-          <div className="space-y-3 w-full max-w-xs">
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-indigo-500 w-2/3 animate-pulse"></div>
-            </div>
-            <p className="text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Processando milhões de pontos de dados...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Result State */}
-      {advice && !loading && (
-        <div className="flex-1 flex flex-col animate-fade-in">
-          <div className="flex justify-between items-center mb-3 print:hidden">
-             <span className="text-xs font-bold text-gray-400 uppercase">Relatório Gerado</span>
-             <div className="flex gap-2">
-                <button onClick={handlePrint} className="p-2 bg-white border rounded-lg text-gray-600 hover:text-slate-900 shadow-sm">
-                    <Printer size={18} />
-                </button>
-                <button className="p-2 bg-white border rounded-lg text-gray-600 hover:text-slate-900 shadow-sm">
-                    <Share2 size={18} />
-                </button>
-             </div>
-          </div>
-
-          {/* Operational Metrics Highlights */}
-          <div className="grid grid-cols-2 gap-3 mb-4 print:hidden">
-             <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 relative overflow-hidden group">
-                <div className="relative z-10">
-                    <div className="flex items-center gap-1.5 mb-1 text-emerald-700">
-                        <DollarSign size={14} className="stroke-[3px]" />
-                        <p className="text-xs font-bold uppercase tracking-wide">Lucro por KM</p>
+      {/* --- REPORT TAB --- */}
+      {activeTab === 'report' && (
+        <>
+            {!advice && !loading && (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-white rounded-2xl border border-dashed border-gray-300 shadow-sm print:hidden">
+                    <div className="bg-indigo-50 p-6 rounded-full mb-6 text-indigo-600">
+                        <TrendingUp size={48} />
                     </div>
-                    <p className="text-2xl font-black text-emerald-600 tracking-tight">
-                        R$ {profitPerKm.toFixed(2)}
+                    <h3 className="text-xl font-bold text-gray-800 mb-2">Análise Preditiva</h3>
+                    <p className="text-gray-500 text-sm mb-8 leading-relaxed max-w-xs mx-auto">
+                        Descubra seu score de eficiência e projeções de ganhos usando Inteligência Avançada (Pro).
                     </p>
+                    <button
+                        onClick={handleGetAdvice}
+                        className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold shadow-lg shadow-slate-200 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+                    >
+                        <Sparkles size={20} className="text-yellow-400" />
+                        Gerar Relatório Pro
+                    </button>
                 </div>
-                <div className="absolute right-0 bottom-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
-                   <TrendingUp size={40} className="text-emerald-900"/>
-                </div>
-             </div>
+            )}
 
-             <div className="bg-white p-4 rounded-xl border border-slate-200 relative overflow-hidden group shadow-sm">
-                <div className="relative z-10">
-                     <div className="flex items-center gap-1.5 mb-1 text-slate-500">
-                        <MapPin size={14} className="stroke-[2.5px]" />
-                        <p className="text-xs font-bold uppercase tracking-wide">KM Total</p>
-                     </div>
-                     <p className="text-2xl font-black text-slate-700 tracking-tight">
-                        {totalKm.toFixed(1)} <span className="text-sm font-bold text-slate-400">km</span>
-                     </p>
+            {loading && (
+                <div className="flex-1 flex flex-col items-center justify-center space-y-8 print:hidden">
+                    <div className="w-16 h-16 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                    <p className="text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Processando dados...</p>
                 </div>
-             </div>
-          </div>
+            )}
 
-          <div className="flex-1 overflow-y-auto no-scrollbar bg-white rounded-2xl shadow-sm border border-gray-200 p-6 print:shadow-none print:border-none print:p-0">
-            <div className="prose prose-sm prose-slate max-w-none">
-                <ReactMarkdown
-                    components={{
-                        h1: ({node, ...props}) => <h1 className="text-2xl font-black text-slate-900 mb-6 pb-4 border-b-2 border-slate-100" {...props} />,
-                        h2: ({node, ...props}) => <div className="mt-8 mb-4 flex items-center gap-2"><div className="w-1 h-6 bg-indigo-500 rounded-full"></div><h2 className="text-lg font-bold text-slate-800 m-0" {...props} /></div>,
-                        p: ({node, ...props}) => <p className="text-slate-600 leading-relaxed mb-4" {...props} />,
-                        li: ({node, ...props}) => <li className="text-slate-700 mb-2 pl-2 border-l-2 border-indigo-100 ml-4" {...props} />,
-                        strong: ({node, ...props}) => <span className="font-bold text-slate-900" {...props} />,
-                    }}
+            {advice && !loading && (
+                <div className="flex-1 flex flex-col animate-fade-in">
+                     <div className="flex justify-between items-center mb-3 print:hidden">
+                        <span className="text-xs font-bold text-gray-400 uppercase">Relatório Gerado</span>
+                        <div className="flex gap-2">
+                            <button onClick={handlePrint} className="p-2 bg-white border rounded-lg text-gray-600 hover:text-slate-900 shadow-sm"><Printer size={18} /></button>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto bg-white rounded-2xl shadow-sm border border-gray-200 p-6 print:shadow-none print:border-none print:p-0">
+                        <div className="prose prose-sm prose-slate max-w-none">
+                            <ReactMarkdown>{advice}</ReactMarkdown>
+                        </div>
+                    </div>
+                    
+                    <button
+                        onClick={handleGetAdvice}
+                        className="mt-4 bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 active:scale-95 transition-all flex items-center justify-center gap-2 print:hidden"
+                    >
+                        <RefreshCw size={18} /> Atualizar
+                    </button>
+                </div>
+            )}
+        </>
+      )}
+
+      {/* --- MARKET TAB (WEB SEARCH) --- */}
+      {activeTab === 'market' && (
+        <div className="flex-1 flex flex-col animate-fade-in">
+            <form onSubmit={handleMarketSearch} className="mb-4 relative">
+                <input 
+                    type="text" 
+                    placeholder="Pesquisar na Web..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-4 pr-12 py-4 rounded-xl border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <button 
+                    type="submit" 
+                    disabled={searching}
+                    className="absolute right-2 top-2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                 >
-                    {advice}
-                </ReactMarkdown>
-            </div>
+                    {searching ? <Loader2 size={20} className="animate-spin" /> : <Search size={20} />}
+                </button>
+            </form>
+
+            {!searchResult && !searching && (
+                <div className="mb-6">
+                    <p className="text-xs font-bold text-gray-400 uppercase mb-3 ml-1">Sugestões (Web)</p>
+                    <div className="flex flex-wrap gap-2">
+                        {predefinedQueries.map(q => (
+                            <button 
+                                key={q}
+                                onClick={() => { setSearchQuery(q); handleMarketSearch({ preventDefault: () => {} } as any); }}
+                                className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:border-indigo-100 hover:text-indigo-600 transition-colors text-left"
+                            >
+                                {q}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {searchResult && (
+                <div className="flex-1 bg-white rounded-2xl border border-gray-200 p-5 overflow-y-auto shadow-sm">
+                    <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <Globe size={16} className="text-indigo-500" /> 
+                        Resultado Web
+                    </h3>
+                    <div className="prose prose-sm prose-slate mb-6">
+                        <ReactMarkdown>{searchResult.text}</ReactMarkdown>
+                    </div>
+
+                    {searchResult.sources && searchResult.sources.length > 0 && (
+                        <div className="pt-4 border-t border-gray-100">
+                            <p className="text-xs font-bold text-gray-400 uppercase mb-3">Fontes Encontradas</p>
+                            <div className="space-y-2">
+                                {searchResult.sources.map((chunk: any, i: number) => {
+                                    const web = chunk.web;
+                                    if (!web) return null;
+                                    return (
+                                        <a 
+                                            key={i} 
+                                            href={web.uri} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="block p-3 bg-gray-50 rounded-lg hover:bg-indigo-50 transition-colors border border-transparent hover:border-indigo-100 group"
+                                        >
+                                            <p className="text-xs font-bold text-slate-700 truncate mb-0.5 group-hover:text-indigo-700">{web.title}</p>
+                                            <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                                                <ExternalLink size={10} />
+                                                <span className="truncate">{web.uri}</span>
+                                            </div>
+                                        </a>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
             
-            <div className="mt-8 pt-6 border-t border-gray-100 text-center print:block hidden">
-                <p className="text-xs text-gray-400">Relatório gerado por EntregaPro • {new Date().toLocaleDateString()}</p>
-            </div>
-          </div>
-          
-          <button
-            onClick={handleGetAdvice}
-            className="mt-4 bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 active:scale-95 transition-all flex items-center justify-center gap-2 print:hidden shadow-lg shadow-slate-300"
-          >
-            <RefreshCw size={18} />
-            Atualizar Análise
-          </button>
+             {!searchResult && !searching && (
+                 <div className="flex-1 flex flex-col items-center justify-center opacity-30">
+                     <Globe size={64} className="mb-4" />
+                     <p className="text-sm font-medium">Conectado ao Google Search</p>
+                 </div>
+             )}
+        </div>
+      )}
+
+      {/* --- MAP TAB (GOOGLE MAPS GROUNDING) --- */}
+      {activeTab === 'map' && (
+        <div className="flex-1 flex flex-col animate-fade-in">
+            <form onSubmit={handleMapSearch} className="mb-4 relative">
+                <input 
+                    type="text" 
+                    placeholder="Ex: Postos de gasolina, oficinas..."
+                    value={mapQuery}
+                    onChange={e => setMapQuery(e.target.value)}
+                    className="w-full pl-4 pr-12 py-4 rounded-xl border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <button 
+                    type="submit" 
+                    disabled={mapSearching}
+                    className="absolute right-2 top-2 p-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                >
+                    {mapSearching ? <Loader2 size={20} className="animate-spin" /> : <MapPin size={20} />}
+                </button>
+            </form>
+
+            {!mapResult && !mapSearching && (
+                <div className="mb-6">
+                    <p className="text-xs font-bold text-gray-400 uppercase mb-3 ml-1">Locais Próximos</p>
+                    <div className="flex flex-wrap gap-2">
+                        {predefinedMapQueries.map(q => (
+                            <button 
+                                key={q}
+                                onClick={() => { setMapQuery(q); handleMapSearch({ preventDefault: () => {} } as any); }}
+                                className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:bg-emerald-50 hover:border-emerald-100 hover:text-emerald-600 transition-colors text-left"
+                            >
+                                {q}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {mapResult && (
+                <div className="flex-1 bg-white rounded-2xl border border-gray-200 p-5 overflow-y-auto shadow-sm">
+                    <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <MapPin size={16} className="text-emerald-500" /> 
+                        Locais Encontrados
+                    </h3>
+                    <div className="prose prose-sm prose-slate mb-6">
+                        <ReactMarkdown>{mapResult.text}</ReactMarkdown>
+                    </div>
+
+                    {mapResult.sources && mapResult.sources.length > 0 && (
+                        <div className="pt-4 border-t border-gray-100">
+                            <p className="text-xs font-bold text-gray-400 uppercase mb-3">Google Maps Links</p>
+                            <div className="space-y-2">
+                                {mapResult.sources.map((chunk: any, i: number) => {
+                                    // Check if it's a maps chunk
+                                    const mapData = chunk.maps;
+                                    const web = chunk.web;
+                                    
+                                    if (mapData) {
+                                        return (
+                                            <a 
+                                                key={i} 
+                                                href={mapData.uri} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="block p-3 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors border border-transparent hover:border-emerald-200 group"
+                                            >
+                                                <div className="flex items-start gap-2">
+                                                    <MapPin size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+                                                    <div>
+                                                        <p className="text-xs font-bold text-slate-800 group-hover:text-emerald-800">{mapData.title || "Local no Mapa"}</p>
+                                                        <div className="flex items-center gap-1 text-[10px] text-emerald-600/70">
+                                                            <span>Abrir no Google Maps</span>
+                                                            <ExternalLink size={10} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        );
+                                    } 
+                                    
+                                    // Fallback for web chunks mixed in
+                                    if (web) {
+                                         return (
+                                            <a 
+                                                key={i} 
+                                                href={web.uri} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100"
+                                            >
+                                                <p className="text-xs font-bold text-slate-700 truncate">{web.title}</p>
+                                                <span className="text-[10px] text-gray-400">{web.uri}</span>
+                                            </a>
+                                        );
+                                    }
+                                    return null;
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+            
+             {!mapResult && !mapSearching && (
+                 <div className="flex-1 flex flex-col items-center justify-center opacity-30">
+                     <Navigation size={64} className="mb-4" />
+                     <p className="text-sm font-medium">Use sua localização para buscar</p>
+                 </div>
+             )}
         </div>
       )}
     </div>
   );
 };
-
-const ZapIcon = () => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-yellow-400" xmlns="http://www.w3.org/2000/svg">
-        <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="none" />
-    </svg>
-);
