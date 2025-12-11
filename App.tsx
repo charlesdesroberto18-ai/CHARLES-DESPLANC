@@ -14,6 +14,8 @@ import { LoginScreen } from './components/LoginScreen';
 import { SettingsModal } from './components/SettingsModal';
 import { ShiftSummaryModal } from './components/ShiftSummaryModal';
 import { AnalyticsView } from './components/AnalyticsView';
+import { ShiftHistoryView } from './components/ShiftHistoryView';
+import { MaintenanceAlertView } from './components/MaintenanceAlertView';
 import { Plus, Eye, EyeOff, Activity, Settings } from 'lucide-react';
 
 // Helper: Haversine Formula
@@ -375,6 +377,10 @@ const App: React.FC = () => {
         return <GeminiAdvisor transactions={transactions} shifts={shifts} goals={goals} />;
       case 'analytics':
         return <AnalyticsView transactions={transactions} shifts={shifts} />;
+      case 'history':
+        return <ShiftHistoryView shifts={shifts} onDeleteShift={handleDeleteShift} />;
+      case 'maintenance':
+        return <MaintenanceAlertView shifts={shifts} />;
       default:
         return null;
     }

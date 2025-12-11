@@ -56,4 +56,4 @@ export interface FinancialSummary {
   hoursWorked: number; // New metric
 }
 
-export type ViewState = 'dashboard' | 'calendar' | 'goals' | 'advisor' | 'analytics';
+export type ViewState = 'dashboard' | 'calendar' | 'goals' | 'advisor' | 'analytics' | 'history' | 'maintenance';
