@@ -16,6 +16,7 @@ import { ShiftSummaryModal } from './components/ShiftSummaryModal';
 import { AnalyticsView } from './components/AnalyticsView';
 import { ShiftHistoryView } from './components/ShiftHistoryView';
 import { MaintenanceAlertView } from './components/MaintenanceAlertView';
+import { MaintenanceAlertViewEnhanced } from './components/MaintenanceAlertViewEnhanced';
 import { Plus, Eye, EyeOff, Activity, Settings } from 'lucide-react';
 
 // Helper: Haversine Formula
@@ -57,6 +58,10 @@ const App: React.FC = () => {
   // GPS Tracking State
   const [liveKm, setLiveKm] = useState(0);
   const [gpsStatus, setGpsStatus] = useState<'searching' | 'active' | 'error' | 'off'>('off');
+  const [vehicleOdometer, setVehicleOdometer] = useState<number>(() => {
+    const saved = localStorage.getItem('entregaPro_vehicle_odometer');
+    return saved ? parseFloat(saved) : 0;
+  });
   const lastPositionRef = useRef<{lat: number, lng: number} | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
@@ -225,6 +230,11 @@ const App: React.FC = () => {
       setShifts(prev => prev.filter(s => s.id !== id));
   };
 
+  const handleUpdateVehicleOdometer = (newOdometer: number) => {
+    setVehicleOdometer(newOdometer);
+    localStorage.setItem('entregaPro_vehicle_odometer', newOdometer.toString());
+  };
+
   const handleEndShift = (data: { earnings: number; expenses: { category: Category; amount: number }[]; deliveries: number; km: number, endTime: string, startTime?: string }) => {
     const startIso = data.startTime || (currentShift ? currentShift.startTime : new Date().toISOString());
     const startTimeMs = new Date(startIso).getTime();
@@ -380,7 +390,7 @@ const App: React.FC = () => {
       case 'history':
         return <ShiftHistoryView shifts={shifts} onDeleteShift={handleDeleteShift} />;
       case 'maintenance':
-        return <MaintenanceAlertView shifts={shifts} />;
+        return <MaintenanceAlertViewEnhanced shifts={shifts} currentOdometer={vehicleOdometer} onOdometerChange={handleUpdateVehicleOdometer} />;
       default:
         return null;
     }

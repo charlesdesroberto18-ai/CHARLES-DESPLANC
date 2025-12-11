@@ -10,9 +10,11 @@ interface Props {
 export const BottomNav: React.FC<Props> = ({ currentView, onChangeView }) => {
   const navItems: { view: ViewState; label: string; icon: React.ReactNode }[] = [
     { view: 'dashboard', label: 'Painel', icon: <LayoutDashboard size={22} /> },
+    { view: 'calendar', label: 'Agenda', icon: <CalendarDays size={22} /> },
     { view: 'analytics', label: 'Análises', icon: <BarChart3 size={22} /> },
     { view: 'history', label: 'Histórico', icon: <History size={22} /> },
     { view: 'maintenance', label: 'Manutenção', icon: <Wrench size={22} /> },
+    { view: 'goals', label: 'Metas', icon: <Target size={22} /> },
     { view: 'advisor', label: 'IA Copilot', icon: <Sparkles size={22} /> },
   ];
 
