@@ -9,6 +9,11 @@ export enum Category {
   OTHER = 'Outros'
 }
 
+export interface MaintenanceMetadata {
+  currentOdometer?: number;
+  nextServiceInterval?: number;
+}
+
 export interface Transaction {
   id: string;
   type: TransactionType;
@@ -17,6 +22,7 @@ export interface Transaction {
   date: string; // ISO String
   description?: string;
   shiftId?: string; // Link to a specific shift
+  maintenanceMetadata?: MaintenanceMetadata;
 }
 
 export interface Shift {

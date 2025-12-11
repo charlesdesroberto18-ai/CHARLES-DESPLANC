@@ -61,6 +61,30 @@ export const getFinancialAdvice = async (
     const deliveriesPerHour = totalHours > 0 ? (totalDeliveries / totalHours).toFixed(1) : "0.0";
     const avgTicket = totalDeliveries > 0 ? (totalIncome / totalDeliveries).toFixed(2) : "0.00";
 
+    // Maintenance Context logic
+    const lastMaintenance = transactions
+      .filter(t => t.category === Category.MAINTENANCE && t.maintenanceMetadata)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+    let maintenanceContext = "";
+    if (lastMaintenance && lastMaintenance.maintenanceMetadata) {
+        const currentEstimatedOdometer = (lastMaintenance.maintenanceMetadata.currentOdometer || 0) + 
+          shifts.filter(s => new Date(s.startTime) > new Date(lastMaintenance.date)).reduce((acc, s) => acc + (s.kmDriven || 0), 0);
+        
+        const nextServiceAt = lastMaintenance.maintenanceMetadata.nextServiceInterval || 0;
+        const kmRemaining = nextServiceAt - currentEstimatedOdometer;
+
+        maintenanceContext = `
+        STATUS DA MOTO (CRÍTICO):
+        - Última manutenção: ${new Date(lastMaintenance.date).toLocaleDateString()} (${lastMaintenance.description})
+        - KM Atual Estimado: ${currentEstimatedOdometer.toFixed(1)} km
+        - Próxima revisão prevista: ${nextServiceAt} km
+        - KM Restante para revisão: ${kmRemaining.toFixed(1)} km
+        
+        ATENÇÃO: Se o KM restante for baixo (< 500km), ALERTE O USUÁRIO URGENTEMENTE no plano de ação.
+        `;
+    }
+
     // Recent History
     const recentHistory = transactions.slice(-15).map(t => 
       `- ${t.date.split('T')[0]}: ${t.type === 'income' ? '💰' : '💸'} R$${t.amount} (${t.category})`
@@ -83,6 +107,8 @@ export const getFinancialAdvice = async (
     - Entregas/Hora: ${deliveriesPerHour}
     - Ticket Médio: R$ ${avgTicket}
     
+    ${maintenanceContext}
+
     METAS ATIVAS:
     ${goals.map(g => `- ${g.title}: Alvo R$${g.targetAmount} (${((g.currentAmount/g.targetAmount)*100).toFixed(0)}%)`).join('\n')}
 
@@ -105,5 +131,39 @@ export const getFinancialAdvice = async (
   } catch (error) {
     console.error("Error fetching Gemini advice:", error);
     return "### ⚠️ Erro de Conexão\nO consultor financeiro está offline. Verifique sua internet.";
+  }
+};
+
+export const getDailyMotivation = async (): Promise<string> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    const prompt = `
+    Gere uma frase curta (máximo 2 frases), motivacional e impactante para um entregador de moto que está começando o dia de trabalho.
+    
+    PERSONA: Você é um parceiro de estrada experiente, um irmão de corre.
+    TOM DE VOZ:
+    - Use gírias leves de motoboy/entregador (ex: corre, marcha, foguete, abençoado, guerreiro).
+    - Pode ter um toque de espiritualidade/fé (proteção divina, Deus no comando), mas sem ser religioso demais.
+    - Foco na batalha, na segurança, em fazer dinheiro e voltar bem pra casa.
+    - NÃO use frases clichês de coach ou LinkedIn. Seja rua, seja real.
+    
+    Exemplos de estilo (NÃO COPIE, CRIE NOVO):
+    - "Capacete fechado e Deus na proteção. O asfalto é nosso escritório, marcha nas entregas!"
+    - "Foguete não tem ré, parceiro. Foco na meta e cuidado nos corredores que a família te espera."
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        temperature: 1.0, // High creativity
+      }
+    });
+
+    return response.text || "Marcha no progresso e Deus na proteção. Bom corre!";
+  } catch (error) {
+    console.error("Error fetching motivation:", error);
+    return "Foco na meta e cuidado na pista. Bom trabalho, guerreiro!";
   }
 };

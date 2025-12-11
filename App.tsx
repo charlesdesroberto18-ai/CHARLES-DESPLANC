@@ -8,8 +8,11 @@ import { GeminiAdvisor } from './components/GeminiAdvisor';
 import { BottomNav } from './components/BottomNav';
 import { CalendarView } from './components/CalendarView';
 import { ShiftTimer } from './components/ShiftTimer';
+import { ShiftList } from './components/ShiftList';
 import { ToastNotification, NotificationProps } from './components/ToastNotification';
-import { Plus, Eye, EyeOff, Activity } from 'lucide-react';
+import { LoginScreen } from './components/LoginScreen';
+import { SettingsModal } from './components/SettingsModal';
+import { Plus, Eye, EyeOff, Activity, Settings } from 'lucide-react';
 
 // INITIAL DATA RESET FOR REAL USAGE
 const INITIAL_TRANSACTIONS: Transaction[] = [];
@@ -30,8 +33,15 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 };
 
 const App: React.FC = () => {
+  // Auth State
+  const [user, setUser] = useState<{name: string, email: string, photo?: string} | null>(() => {
+    const savedUser = localStorage.getItem('entregaPro_user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
   const [view, setView] = useState<ViewState>('dashboard');
   const [isAddingTransaction, setIsAddingTransaction] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeNotification, setActiveNotification] = useState<Omit<NotificationProps, 'onClose'> | null>(null);
   const [isFocusMode, setIsFocusMode] = useState(false);
   
@@ -71,6 +81,12 @@ const App: React.FC = () => {
     else localStorage.removeItem('entregaPro_real_currentShift');
   }, [currentShift]);
 
+  // Auth Persistence
+  useEffect(() => {
+    if (user) localStorage.setItem('entregaPro_user', JSON.stringify(user));
+    else localStorage.removeItem('entregaPro_user');
+  }, [user]);
+
   // --- REAL GPS TRACKING LOGIC ---
   useEffect(() => {
     if (currentShift) {
@@ -88,10 +104,9 @@ const App: React.FC = () => {
       watchIdRef.current = navigator.geolocation.watchPosition(
         (position) => {
           setGpsStatus('active');
-          const { latitude, longitude, accuracy, speed } = position.coords;
+          const { latitude, longitude, accuracy } = position.coords;
 
-          // Filter noise: ignore if accuracy is bad (> 50m) or speed is 0
-          // (Basic filtering, can be improved)
+          // Filter noise: ignore if accuracy is bad (> 100m)
           if (accuracy > 100) return;
 
           if (lastPositionRef.current) {
@@ -178,9 +193,10 @@ const App: React.FC = () => {
       }
     };
 
-    // Run check once on mount 
-    checkRecurringExpenses();
-  }, [transactions, shifts, currentShift]); 
+    if (user) {
+        checkRecurringExpenses();
+    }
+  }, [transactions, shifts, currentShift, user]); 
 
   // Derived state for summary
   const summary: FinancialSummary = useMemo(() => {
@@ -233,10 +249,21 @@ const App: React.FC = () => {
     setCurrentShift({ ...currentShift, startTime: originalDate.toISOString() });
   };
 
-  const handleEndShift = (data: { earnings: number; expenses: { category: Category; amount: number }[]; deliveries: number; km: number, endTime: string }) => {
-    if (!currentShift) return;
-    
-    const startTimeMs = new Date(currentShift.startTime).getTime();
+  const handleCancelCurrentShift = () => {
+    setCurrentShift(null);
+    setLiveKm(0);
+  };
+
+  const handleDeleteShift = (id: string) => {
+      setShifts(prev => prev.filter(s => s.id !== id));
+      // NOTE: We do not delete the transactions associated with the shift automatically to preserve financial records,
+      // as confirmed in the prompt "metrics removed, earnings remain". 
+  };
+
+  const handleEndShift = (data: { earnings: number; expenses: { category: Category; amount: number }[]; deliveries: number; km: number, endTime: string, startTime?: string }) => {
+    // If startTime is provided, it's a manual entry (or override). Otherwise use currentShift.startTime
+    const startIso = data.startTime || (currentShift ? currentShift.startTime : new Date().toISOString());
+    const startTimeMs = new Date(startIso).getTime();
     const endTimeMs = new Date(data.endTime).getTime();
     
     // Calculate duration based on manual input
@@ -245,9 +272,12 @@ const App: React.FC = () => {
     // Calculate total expense from the array
     const totalExpenses = data.expenses.reduce((acc, curr) => acc + curr.amount, 0);
 
+    const shiftId = currentShift ? currentShift.id : Date.now().toString();
+
     // Create the completed shift record with reported data
     const completedShift: Shift = { 
-      ...currentShift, 
+      id: shiftId,
+      startTime: startIso,
       endTime: data.endTime, 
       durationSeconds,
       totalEarnings: data.earnings,
@@ -257,23 +287,27 @@ const App: React.FC = () => {
     };
 
     setShifts(prev => [...prev, completedShift]);
-    setCurrentShift(null);
-    setLiveKm(0);
+    
+    // If it was an active shift, clear it
+    if (currentShift) {
+        setCurrentShift(null);
+        setLiveKm(0);
+    }
 
     // Auto-add transactions from the report
     if (data.earnings > 0) {
-        handleAddTransaction(data.earnings, 'income', Category.DELIVERY, 'Fechamento de Turno');
+        handleAddTransaction(data.earnings, 'income', Category.DELIVERY, 'Fechamento de Turno', shiftId);
     }
     
     // Process each expense individually
     if (data.expenses.length > 0) {
         data.expenses.forEach(exp => {
-            handleAddTransaction(exp.amount, 'expense', exp.category, `Gasto Turno: ${exp.category}`);
+            handleAddTransaction(exp.amount, 'expense', exp.category, `Gasto Turno: ${exp.category}`, shiftId);
         });
     }
   };
 
-  const handleAddTransaction = (amount: number, type: TransactionType, category: Category, description: string) => {
+  const handleAddTransaction = (amount: number, type: TransactionType, category: Category, description: string, shiftId?: string) => {
     const newTx: Transaction = {
       id: Date.now().toString() + Math.random(),
       amount,
@@ -281,15 +315,29 @@ const App: React.FC = () => {
       category,
       description,
       date: new Date().toISOString(),
-      shiftId: currentShift?.id
+      shiftId: shiftId || currentShift?.id
     };
     setTransactions(prev => [...prev, newTx]);
     setIsAddingTransaction(false);
   };
 
+  const handleLogin = (userData: {name: string, email: string, photo: string}) => {
+    setUser(userData);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setView('dashboard');
+  };
+
+  // --- RENDER ---
+  if (!user) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
+
   const renderContent = () => {
     if (isAddingTransaction) {
-        return <AddTransaction onAdd={handleAddTransaction} onCancel={() => setIsAddingTransaction(false)} />;
+        return <AddTransaction onAdd={(amt, type, cat, desc) => handleAddTransaction(amt, type, cat, desc)} onCancel={() => setIsAddingTransaction(false)} />;
     }
 
     switch (view) {
@@ -297,12 +345,19 @@ const App: React.FC = () => {
         return (
           <div className="p-4 pb-24 animate-fade-in">
             <header className="flex justify-between items-center mb-6 pt-2">
-              <div>
-                <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                    EntregaPro
-                    {isFocusMode && <span className="bg-slate-900 text-white text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Foco</span>}
-                </h1>
-                <p className="text-xs text-gray-500 font-medium">Painel de Controle</p>
+              <div className="flex items-center gap-3">
+                {user.photo && (
+                    <img src={user.photo} alt={user.name} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" />
+                )}
+                <div>
+                    <h1 className="text-sm font-bold text-gray-800 leading-tight">
+                        Olá, {user.name.split(' ')[0]}
+                    </h1>
+                    <p className="text-xs text-gray-500 font-medium flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                        Online
+                    </p>
+                </div>
               </div>
               
               <div className="flex items-center gap-2">
@@ -312,9 +367,12 @@ const App: React.FC = () => {
                   >
                       {isFocusMode ? <Eye size={20} /> : <EyeOff size={20} />}
                   </button>
-                  <div className="w-9 h-9 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-md">
-                    EP
-                  </div>
+                  <button
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="p-2 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200"
+                  >
+                    <Settings size={20} />
+                  </button>
               </div>
             </header>
 
@@ -322,6 +380,7 @@ const App: React.FC = () => {
                 currentShift={currentShift} 
                 onStartShift={handleStartShift} 
                 onUpdateShiftStart={handleUpdateShiftStart}
+                onCancelShift={handleCancelCurrentShift}
                 onEndShift={handleEndShift}
                 liveKm={liveKm}
                 gpsStatus={gpsStatus}
@@ -359,6 +418,7 @@ const App: React.FC = () => {
                 // Normal View
                 <>
                     <SummaryCards summary={summary} />
+                    <ShiftList shifts={shifts} onDeleteShift={handleDeleteShift} />
                     <div className="mb-4">
                         <h3 className="text-sm font-bold text-gray-800 mb-3">Últimas Atividades</h3>
                         <TransactionList transactions={transactions.slice(-5)} />
@@ -387,6 +447,16 @@ const App: React.FC = () => {
           {...activeNotification} 
           onClose={() => setActiveNotification(null)} 
         />
+      )}
+
+      {isSettingsOpen && (
+          <SettingsModal 
+            onClose={() => setIsSettingsOpen(false)}
+            onLogout={handleLogout}
+            user={user}
+            transactions={transactions}
+            shifts={shifts}
+          />
       )}
 
       {renderContent()}

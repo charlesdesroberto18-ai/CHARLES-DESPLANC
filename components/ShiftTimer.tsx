@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Shift, Category } from '../types';
-import { Play, StopCircle, MapPin, Navigation, Calendar, Clock, Save, Package, AlertCircle, DollarSign, Fuel, Utensils, Wrench, Layers, Plus, Trash2, Pencil, X, Check, ExternalLink, Map } from 'lucide-react';
+import { Play, StopCircle, MapPin, Navigation, Calendar, Clock, Save, Package, AlertCircle, DollarSign, Fuel, Utensils, Wrench, Layers, Plus, Trash2, Pencil, X, Check, ExternalLink, Map, History } from 'lucide-react';
 
 interface ExpenseItem {
   id: string;
   category: Category;
   amount: number;
-  timestamp: string; // ISO string para registro do momento
+  timestamp: string;
 }
 
 interface Props {
   currentShift: Shift | null;
   onStartShift: () => void;
   onUpdateShiftStart?: (newTime: string) => void;
-  onEndShift: (data: { earnings: number; expenses: ExpenseItem[]; deliveries: number; km: number; endTime: string }) => void;
+  onCancelShift?: () => void; // New prop to cancel active shift
+  onEndShift: (data: { earnings: number; expenses: ExpenseItem[]; deliveries: number; km: number; endTime: string; startTime?: string }) => void; // Added startTime optional for manual entry
   liveKm?: number;
   gpsStatus?: 'searching' | 'active' | 'error' | 'off';
 }
@@ -25,41 +26,56 @@ const formatTimeForInput = (isoString: string) => {
   return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 };
 
-// Helper: Calculate difference in minutes between two ISO strings or Date objects
+// Helper: Calculate difference in minutes
 const calculateDuration = (start: string | Date, end: string | Date) => {
   const startTime = new Date(start).getTime();
   const endTime = new Date(end).getTime();
   const diffMs = endTime - startTime;
+  if (diffMs < 0) return '0h 0m';
   const hours = Math.floor(diffMs / (1000 * 60 * 60));
   const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
   return `${hours}h ${minutes}m`;
 };
 
-export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpdateShiftStart, onEndShift, liveKm = 0, gpsStatus = 'off' }) => {
+export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpdateShiftStart, onCancelShift, onEndShift, liveKm = 0, gpsStatus = 'off' }) => {
   const [isFinishing, setIsFinishing] = useState(false);
+  const [isManualEntry, setIsManualEntry] = useState(false);
   
-  // Finish Modal State
+  // Modal State
+  const [manualDate, setManualDate] = useState(new Date().toISOString().split('T')[0]); // YYYY-MM-DD
+  const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [earnings, setEarnings] = useState('');
   const [deliveries, setDeliveries] = useState('');
   const [finalKm, setFinalKm] = useState('');
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
   
-  // New Expense Input State
+  // Expense Input State
   const [newExpenseCategory, setNewExpenseCategory] = useState<Category>(Category.FUEL);
   const [newExpenseAmount, setNewExpenseAmount] = useState('');
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   
-  // Initialize End Time when opening modal
+  // Initialize Modal
   useEffect(() => {
-    if (isFinishing) {
-      setEndTime(formatTimeForInput(new Date().toISOString()));
-      // Auto-fill final KM with the live tracking data
-      setFinalKm(liveKm.toFixed(1));
+    if (isFinishing || isManualEntry) {
+      const now = new Date();
+      setEndTime(formatTimeForInput(now.toISOString()));
+      
+      if (currentShift) {
+         // Finishing active shift
+         setStartTime(formatTimeForInput(currentShift.startTime));
+         setFinalKm(liveKm.toFixed(1));
+         setManualDate(currentShift.startTime.split('T')[0]);
+      } else {
+         // Manual entry - default start time 1 hour ago
+         const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+         setStartTime(formatTimeForInput(oneHourAgo.toISOString()));
+         setFinalKm('');
+      }
     }
-  }, [isFinishing, liveKm]);
+  }, [isFinishing, isManualEntry, liveKm, currentShift]);
 
-  // Handler for Start Time Input Change
+  // Handle Active Shift Time Change
   const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (onUpdateShiftStart) {
         onUpdateShiftStart(e.target.value);
@@ -72,15 +88,11 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
     
     if (!isNaN(amount) && amount > 0) {
         if (editingExpenseId) {
-            // Update existing
             setExpenses(prev => prev.map(exp => 
-                exp.id === editingExpenseId 
-                ? { ...exp, category: newExpenseCategory, amount } 
-                : exp
+                exp.id === editingExpenseId ? { ...exp, category: newExpenseCategory, amount } : exp
             ));
             setEditingExpenseId(null);
         } else {
-            // Add new
             setExpenses(prev => [...prev, { 
                 id: Date.now().toString(), 
                 category: newExpenseCategory, 
@@ -88,7 +100,7 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
                 timestamp: new Date().toISOString()
             }]);
         }
-        setNewExpenseAmount(''); // Reset amount
+        setNewExpenseAmount('');
     }
   };
 
@@ -106,26 +118,42 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
 
   const removeExpense = (id: string) => {
     setExpenses(prev => prev.filter(e => e.id !== id));
-    if (editingExpenseId === id) {
-        handleCancelEdit();
-    }
+    if (editingExpenseId === id) handleCancelEdit();
   };
 
   const handleFinish = () => {
-    // Construct Full ISO End Date
-    const now = new Date();
-    const [hours, minutes] = endTime.split(':').map(Number);
-    const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+    // Construct Date Objects
+    // Note: For simplicity in manual entry, we assume the shift started and ended on the selected "manualDate"
+    const baseDate = isManualEntry ? new Date(manualDate) : new Date(); // Use today if finishing active
+    
+    // Parse Start Time
+    const [startH, startM] = startTime.split(':').map(Number);
+    const startDateObj = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), startH, startM);
+    
+    // Parse End Time
+    const [endH, endM] = endTime.split(':').map(Number);
+    let endDateObj = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), endH, endM);
+    
+    // Handle overnight shift (End time is before Start time)
+    if (endDateObj < startDateObj) {
+        endDateObj.setDate(endDateObj.getDate() + 1);
+    }
 
     onEndShift({
       earnings: parseFloat(earnings) || 0,
       expenses,
       deliveries: parseInt(deliveries) || 0,
-      km: parseFloat(finalKm) || liveKm,
-      endTime: endDate.toISOString()
+      km: parseFloat(finalKm) || (liveKm),
+      endTime: endDateObj.toISOString(),
+      startTime: startDateObj.toISOString() // Pass constructed start time
     });
+
+    closeModal();
+  };
+
+  const closeModal = () => {
     setIsFinishing(false);
-    // Reset fields
+    setIsManualEntry(false);
     setEarnings('');
     setDeliveries('');
     setFinalKm('');
@@ -135,7 +163,6 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
   };
 
   const openGoogleMaps = () => {
-    // Opens Google Maps app or website
     window.open('https://www.google.com/maps', '_blank');
   };
 
@@ -147,7 +174,7 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
   ];
 
   // --- IDLE STATE (NO SHIFT) ---
-  if (!currentShift) {
+  if (!currentShift && !isManualEntry) {
     return (
       <div className="mb-6 animate-fade-in">
         <div className="bg-white rounded-3xl p-6 shadow-xl shadow-slate-200 border border-white relative overflow-hidden group">
@@ -166,45 +193,91 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
               </div>
               <span className="text-lg">Começar Agora</span>
             </button>
+            
+            <div className="mt-4 flex justify-center">
+                <button 
+                    onClick={() => setIsManualEntry(true)}
+                    className="text-xs font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 py-2 px-3 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                    <History size={14} />
+                    Registrar Turno Passado
+                </button>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  // --- FINISH MODAL ---
-  if (isFinishing) {
+  // --- MODAL (FINISH OR MANUAL ENTRY) ---
+  if (isFinishing || isManualEntry) {
+    // Current duration calculation for display in modal
+    const tempStart = new Date();
+    const [sH, sM] = startTime.split(':').map(Number);
+    tempStart.setHours(sH || 0, sM || 0);
+    
+    const tempEnd = new Date();
+    const [eH, eM] = endTime.split(':').map(Number);
+    tempEnd.setHours(eH || 0, eM || 0);
+    if (tempEnd < tempStart) tempEnd.setDate(tempEnd.getDate() + 1); // Handle overnight
+
     return (
       <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-fade-in">
         <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
           <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
             <div>
-                <h3 className="text-xl font-black text-slate-900">Resumo do Turno</h3>
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Fechamento de Caixa</p>
+                <h3 className="text-xl font-black text-slate-900">{isManualEntry ? 'Registro Manual' : 'Resumo do Turno'}</h3>
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">{isManualEntry ? 'Adicionar Histórico' : 'Fechamento de Caixa'}</p>
             </div>
-            <button onClick={() => setIsFinishing(false)} className="p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200">
-               <span className="sr-only">Fechar</span>
+            <button onClick={closeModal} className="p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200">
                <X size={20} />
             </button>
           </div>
 
           <div className="space-y-6">
-            {/* Time Adjustment */}
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-slate-400 uppercase">Horário Final</span>
-                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
-                        Duração: {currentShift && calculateDuration(currentShift.startTime, new Date(new Date().setHours(parseInt(endTime.split(':')[0]||'0'), parseInt(endTime.split(':')[1]||'0'))))}
-                    </span>
-                </div>
-                <div className="relative">
+            
+            {/* Date Selection for Manual Entry */}
+            {isManualEntry && (
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1 ml-1 uppercase">Data do Turno</label>
                     <input 
-                        type="time" 
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        className="w-full text-3xl font-black text-slate-800 bg-transparent outline-none border-b-2 border-slate-200 focus:border-indigo-500 transition-colors py-1"
+                        type="date"
+                        value={manualDate}
+                        onChange={(e) => setManualDate(e.target.value)}
+                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none focus:ring-2 focus:ring-indigo-500/20"
                     />
-                    <Clock className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                </div>
+            )}
+
+            {/* Time Adjustment */}
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 grid grid-cols-2 gap-4">
+                <div>
+                    <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Início</span>
+                    <div className="relative">
+                        <input 
+                            type="time" 
+                            value={startTime}
+                            onChange={(e) => setStartTime(e.target.value)}
+                            disabled={!isManualEntry} // Only editable in manual mode
+                            className={`w-full text-2xl font-black text-slate-800 bg-transparent outline-none border-b-2 transition-colors py-1 ${isManualEntry ? 'border-slate-300 focus:border-indigo-500' : 'border-transparent'}`}
+                        />
+                    </div>
+                </div>
+                <div>
+                    <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Fim</span>
+                    <div className="relative">
+                        <input 
+                            type="time" 
+                            value={endTime}
+                            onChange={(e) => setEndTime(e.target.value)}
+                            className="w-full text-2xl font-black text-slate-800 bg-transparent outline-none border-b-2 border-slate-300 focus:border-indigo-500 transition-colors py-1"
+                        />
+                    </div>
+                </div>
+                <div className="col-span-2 text-center">
+                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
+                        Duração Total: {calculateDuration(tempStart, tempEnd)}
+                    </span>
                 </div>
             </div>
 
@@ -261,6 +334,7 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
 
             {/* Expenses Management */}
             <div className="pt-2 border-t border-gray-100">
+                {/* ... existing expense logic ... */}
                 <div className="flex justify-between items-center mb-2">
                     <label className="block text-xs font-bold text-gray-500 uppercase">
                         {editingExpenseId ? 'Editando Gasto' : 'Adicionar Gastos'}
@@ -272,7 +346,6 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
                     )}
                 </div>
                 
-                {/* Category Selection */}
                 <div className="flex gap-2 mb-3 overflow-x-auto no-scrollbar pb-1">
                     {expenseCategories.map((item) => (
                         <button
@@ -290,7 +363,6 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
                     ))}
                 </div>
 
-                {/* Amount Input & Action Button */}
                 <div className="flex gap-2 mb-4">
                      <div className="relative flex-1">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">R$</span>
@@ -315,10 +387,8 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
                     </button>
                 </div>
                 
-                {/* Detailed Expense History List */}
                 {expenses.length > 0 && (
                     <div className="space-y-2 mb-2 bg-gray-50 rounded-xl p-3 border border-gray-100 max-h-40 overflow-y-auto custom-scrollbar">
-                         <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Histórico do Turno</p>
                         {expenses.map((exp) => (
                             <div key={exp.id} className={`flex justify-between items-center bg-white p-2.5 rounded-lg border shadow-sm text-sm transition-all ${editingExpenseId === exp.id ? 'border-blue-400 ring-1 ring-blue-100' : 'border-gray-100'}`}>
                                 <div className="flex items-center gap-3">
@@ -336,18 +406,8 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
                                 <div className="flex items-center gap-3">
                                     <span className="font-bold text-red-600 text-sm">- R$ {exp.amount.toFixed(2)}</span>
                                     <div className="flex items-center gap-1 pl-2 border-l border-gray-100">
-                                        <button 
-                                            onClick={() => handleEditExpense(exp)} 
-                                            className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-md transition-colors"
-                                        >
-                                            <Pencil size={14} />
-                                        </button>
-                                        <button 
-                                            onClick={() => removeExpense(exp.id)} 
-                                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
+                                        <button onClick={() => handleEditExpense(exp)} className="p-1.5 text-gray-400 hover:text-blue-500 rounded-md"><Pencil size={14} /></button>
+                                        <button onClick={() => removeExpense(exp.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-md"><Trash2 size={14} /></button>
                                     </div>
                                 </div>
                             </div>
@@ -360,7 +420,7 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
                 onClick={handleFinish}
                 className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg shadow-xl shadow-slate-200 hover:bg-slate-800 active:scale-95 transition-all mt-2 flex items-center justify-center gap-2"
             >
-                <Save size={20} /> Salvar e Encerrar
+                <Save size={20} /> Salvar {isManualEntry ? 'Registro' : 'e Encerrar'}
             </button>
           </div>
         </div>
@@ -373,6 +433,18 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
     <div className="mb-6 animate-fade-in">
       <div className="bg-slate-900 rounded-[2rem] p-6 shadow-2xl shadow-slate-400 text-white relative overflow-hidden">
         
+        {/* Delete Active Shift Button */}
+        <button 
+            onClick={() => {
+                if(confirm('Deseja cancelar este turno? Todos os dados não salvos serão perdidos.')) {
+                    onCancelShift && onCancelShift();
+                }
+            }}
+            className="absolute top-6 right-6 z-20 p-2 bg-slate-800 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded-xl transition-colors"
+        >
+            <Trash2 size={18} />
+        </button>
+
         {/* Ambient Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none"></div>
 
@@ -392,7 +464,8 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
                 </span>
             </div>
             
-            <div className="flex items-center gap-1 text-slate-400">
+            {/* Date Display (moved slightly to avoid trash button) */}
+            <div className="flex items-center gap-1 text-slate-400 mr-10">
                 <Calendar size={14} />
                 <span className="text-xs font-medium">{new Date().toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric' })}</span>
             </div>
@@ -407,10 +480,8 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
                     type="time" 
                     value={formatTimeForInput(currentShift.startTime)}
                     onChange={handleStartTimeChange}
-                    // Added distinct styling to look interactive
                     className="bg-transparent text-6xl font-black text-white text-center w-auto min-w-[160px] focus:outline-none focus:ring-0 cursor-pointer decoration-0"
                 />
-                {/* Edit Icon - Made visible always but subtle, brighter on hover */}
                 <div className="absolute -right-6 top-1/2 -translate-y-1/2 text-slate-600 group-hover:text-white transition-colors pointer-events-none">
                     <Pencil size={20} />
                 </div>
