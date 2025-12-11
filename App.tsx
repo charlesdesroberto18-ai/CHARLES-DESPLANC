@@ -12,6 +12,8 @@ import { ShiftList } from './components/ShiftList';
 import { ToastNotification, NotificationProps } from './components/ToastNotification';
 import { LoginScreen } from './components/LoginScreen';
 import { SettingsModal } from './components/SettingsModal';
+import { ShiftSummaryModal } from './components/ShiftSummaryModal';
+import { AnalyticsView } from './components/AnalyticsView';
 import { Plus, Eye, EyeOff, Activity, Settings } from 'lucide-react';
 
 // Helper: Haversine Formula
@@ -47,6 +49,8 @@ const App: React.FC = () => {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [lastCompletedShift, setLastCompletedShift] = useState<Shift | null>(null);
+  const [showShiftSummary, setShowShiftSummary] = useState(false);
 
   // GPS Tracking State
   const [liveKm, setLiveKm] = useState(0);
@@ -239,6 +243,9 @@ const App: React.FC = () => {
     };
 
     setShifts(prev => [...prev, completedShift]);
+    setLastCompletedShift(completedShift);
+    setShowShiftSummary(true);
+    
     if (currentShift) {
         setCurrentShift(null);
         setLiveKm(0);
@@ -366,6 +373,8 @@ const App: React.FC = () => {
         return <GoalTracker goals={goals} transactions={transactions} shifts={shifts} onAddGoal={(g) => setGoals(prev => [...prev, g])} onDeleteGoal={(id) => setGoals(prev => prev.filter(g => g.id !== id))} />;
       case 'advisor':
         return <GeminiAdvisor transactions={transactions} shifts={shifts} goals={goals} />;
+      case 'analytics':
+        return <AnalyticsView transactions={transactions} shifts={shifts} />;
       default:
         return null;
     }
@@ -375,6 +384,7 @@ const App: React.FC = () => {
     <div className="max-w-md mx-auto min-h-screen bg-gray-50 relative shadow-2xl overflow-hidden font-sans">
       {activeNotification && <ToastNotification {...activeNotification} onClose={() => setActiveNotification(null)} />}
       {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onLogout={handleLogout} user={user} transactions={transactions} shifts={shifts} />}
+      {showShiftSummary && lastCompletedShift && <ShiftSummaryModal shift={lastCompletedShift} onClose={() => setShowShiftSummary(false)} />}
       
       {renderContent()}
       
