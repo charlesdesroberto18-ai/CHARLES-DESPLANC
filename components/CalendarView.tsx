@@ -88,7 +88,7 @@ export const CalendarView: React.FC<Props> = ({ transactions }) => {
   }, [selectedTransactions, selectedDate]);
 
   return (
-    <div className="p-4 pb-24 animate-fade-in">
+    <div className="p-4 lg:p-8 pb-24 animate-fade-in">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 mb-6">
         <div className="flex justify-between items-center mb-4">
           <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-full"><ChevronLeft size={20} /></button>

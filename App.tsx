@@ -336,7 +336,7 @@ const App: React.FC = () => {
     switch (view) {
       case 'dashboard':
         return (
-          <div className="p-4 pb-24 animate-fade-in">
+          <div className="p-4 lg:p-8 pb-24 animate-fade-in max-w-7xl mx-auto w-full">
             <header className="flex justify-between items-center mb-6 pt-2">
               <div className="flex items-center gap-3">
                 {user.photo ? (
@@ -409,26 +409,26 @@ const App: React.FC = () => {
           </div>
         );
       case 'calendar':
-        return <CalendarView transactions={transactions} />;
+        return <div className="max-w-7xl mx-auto w-full"><CalendarView transactions={transactions} /></div>;
       case 'goals':
-        return <GoalTracker goals={goals} transactions={transactions} shifts={shifts} onAddGoal={(g) => setGoals(prev => [...prev, g])} onDeleteGoal={(id) => setGoals(prev => prev.filter(g => g.id !== id))} />;
+        return <div className="max-w-7xl mx-auto w-full"><GoalTracker goals={goals} transactions={transactions} shifts={shifts} onAddGoal={(g) => setGoals(prev => [...prev, g])} onDeleteGoal={(id) => setGoals(prev => prev.filter(g => g.id !== id))} /></div>;
       case 'advisor':
-        return <GeminiAdvisor transactions={transactions} shifts={shifts} goals={goals} />;
+        return <div className="max-w-7xl mx-auto w-full"><GeminiAdvisor transactions={transactions} shifts={shifts} goals={goals} /></div>;
       case 'analytics':
-        return <AnalyticsView transactions={transactions} shifts={shifts} />;
+        return <div className="max-w-7xl mx-auto w-full"><AnalyticsView transactions={transactions} shifts={shifts} /></div>;
       case 'history':
-        return <ShiftHistoryView shifts={shifts} onDeleteShift={handleDeleteShift} />;
+        return <div className="max-w-7xl mx-auto w-full"><ShiftHistoryView shifts={shifts} onDeleteShift={handleDeleteShift} /></div>;
       case 'maintenance':
-        return <MaintenanceAlertViewEnhanced shifts={shifts} currentOdometer={vehicleOdometer} onOdometerChange={handleUpdateVehicleOdometer} />;
+        return <div className="max-w-7xl mx-auto w-full"><MaintenanceAlertViewEnhanced shifts={shifts} currentOdometer={vehicleOdometer} onOdometerChange={handleUpdateVehicleOdometer} /></div>;
       default:
         return null;
     }
   };
 
   return (
-    <div className="w-full min-h-screen bg-gray-50 relative overflow-hidden font-sans flex flex-col lg:flex-row">
+    <div className="w-full min-h-screen bg-gray-50 relative overflow-hidden font-sans flex flex-col lg:flex-row lg:gap-0">
       {/* Main Content Container */}
-      <div className="flex-1 max-w-full lg:max-w-4xl mx-auto w-full">
+      <div className="flex-1 w-full min-h-screen flex flex-col lg:ml-20">
       {activeNotification && <ToastNotification {...activeNotification} onClose={() => setActiveNotification(null)} />}
       {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onLogout={handleLogout} onClearAllData={handleClearAllData} user={user} transactions={transactions} shifts={shifts} />}
       {showShiftSummary && lastCompletedShift && <ShiftSummaryModal shift={lastCompletedShift} onClose={() => setShowShiftSummary(false)} />}
