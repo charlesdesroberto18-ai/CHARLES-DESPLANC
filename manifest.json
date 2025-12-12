@@ -1,0 +1,21 @@
+{
+  "name": "EntregaPro",
+  "short_name": "EntregaPro",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "description": "O painel de controle definitivo para entregadores.",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/7541/7541900.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/7541/7541900.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

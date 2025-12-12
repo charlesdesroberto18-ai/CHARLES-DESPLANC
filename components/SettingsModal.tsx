@@ -5,13 +5,14 @@ import { Transaction, Shift } from '../types';
 interface Props {
   onClose: () => void;
   onLogout: () => void;
-  onClearAllData: () => void; // Nova prop
   user: { name: string; email: string; photo?: string };
   transactions: Transaction[];
   shifts: Shift[];
+  installPrompt: any;
+  onInstall: () => void;
 }
 
-export const SettingsModal: React.FC<Props> = ({ onClose, onLogout, onClearAllData, user, transactions, shifts }) => {
+export const SettingsModal: React.FC<Props> = ({ onClose, onLogout, user, transactions, shifts, installPrompt, onInstall }) => {
   
   const handleExportCSV = (type: 'transactions' | 'shifts') => {
     let csvContent = "data:text/csv;charset=utf-8,";
@@ -70,6 +71,27 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onLogout, onClearAllDa
             </div>
 
             <div className="space-y-6">
+
+                {/* Install App Section (Visible on Windows/Android) */}
+                {installPrompt && (
+                    <div className="mb-6 p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                <Download size={20} />
+                            </div>
+                            <div>
+                                <h5 className="font-bold text-slate-800 text-sm">Instalar no Dispositivo</h5>
+                                <p className="text-xs text-slate-500">Acesse direto da área de trabalho</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={onInstall}
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg text-xs transition-colors"
+                        >
+                            Instalar App
+                        </button>
+                    </div>
+                )}
                 
                 {/* Data Export Section */}
                 <div>
@@ -111,31 +133,19 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onLogout, onClearAllDa
                     </div>
                 </div>
 
-	                <div className="pt-4 border-t border-gray-100">
-	                    <button 
-	                        onClick={() => {
-	                            if (window.confirm('ATENÇÃO: Isso apagará TODOS os seus dados (transações, turnos, metas, quilometragem) permanentemente. Deseja continuar?')) {
-	                                onClearAllData();
-	                                onClose();
-	                            }
-	                        }}
-	                        className="w-full py-3 rounded-xl text-red-600 font-bold hover:bg-red-50 flex items-center justify-center gap-2 transition-colors"
-	                    >
-	                        <Database size={18} />
-	                        Zerar Todos os Dados
-	                    </button>
-	                    <button 
-	                        onClick={onLogout}
-	                        className="w-full py-3 rounded-xl text-red-600 font-bold hover:bg-red-50 flex items-center justify-center gap-2 transition-colors"
-	                    >
-	                        <LogOut size={18} />
-	                        Sair da Conta
-	                    </button>
-	                </div>
+                <div className="pt-4 border-t border-gray-100">
+                    <button 
+                        onClick={onLogout}
+                        className="w-full py-3 rounded-xl text-red-600 font-bold hover:bg-red-50 flex items-center justify-center gap-2 transition-colors"
+                    >
+                        <LogOut size={18} />
+                        Sair da Conta
+                    </button>
+                </div>
 
                 <div className="text-center">
                     <p className="text-[10px] text-gray-300">
-                        EntregaPro v2.1.0 • Integração Google Workspace
+                        EntregaPro v2.2.0 • Integração Google Workspace
                     </p>
                 </div>
             </div>

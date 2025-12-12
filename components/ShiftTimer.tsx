@@ -123,20 +123,29 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
 
   const handleFinish = () => {
     // Construct Date Objects
-    // Note: For simplicity in manual entry, we assume the shift started and ended on the selected "manualDate"
-    const baseDate = isManualEntry ? new Date(manualDate) : new Date(); // Use today if finishing active
+    const baseDate = isManualEntry ? new Date(manualDate) : new Date();
     
     // Parse Start Time
     const [startH, startM] = startTime.split(':').map(Number);
-    const startDateObj = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), startH, startM);
+    const startDateObj = new Date(baseDate);
+    startDateObj.setHours(startH, startM, 0, 0);
     
     // Parse End Time
     const [endH, endM] = endTime.split(':').map(Number);
-    let endDateObj = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), endH, endM);
+    const endDateObj = new Date(baseDate);
+    endDateObj.setHours(endH, endM, 0, 0);
     
-    // Handle overnight shift (End time is before Start time)
+    // Logic to handle overnight shifts or "started yesterday" cases
     if (endDateObj < startDateObj) {
-        endDateObj.setDate(endDateObj.getDate() + 1);
+        if (isManualEntry) {
+             // Manual entry: If end is before start, assume end date is +1 day (overnight shift)
+             endDateObj.setDate(endDateObj.getDate() + 1);
+        } else {
+             // Finishing active shift: baseDate is "Now" (End time).
+             // If calculated start (using Now's date + start time) is in future relative to End, 
+             // it means the Start was actually yesterday.
+             startDateObj.setDate(startDateObj.getDate() - 1);
+        }
     }
 
     onEndShift({
@@ -145,7 +154,7 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
       deliveries: parseInt(deliveries) || 0,
       km: parseFloat(finalKm) || (liveKm),
       endTime: endDateObj.toISOString(),
-      startTime: startDateObj.toISOString() // Pass constructed start time
+      startTime: startDateObj.toISOString()
     });
 
     closeModal();
@@ -219,7 +228,9 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
     const tempEnd = new Date();
     const [eH, eM] = endTime.split(':').map(Number);
     tempEnd.setHours(eH || 0, eM || 0);
-    if (tempEnd < tempStart) tempEnd.setDate(tempEnd.getDate() + 1); // Handle overnight
+    
+    // Check overnight for preview display
+    if (tempEnd < tempStart) tempEnd.setDate(tempEnd.getDate() + 1);
 
     return (
       <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-fade-in">
@@ -334,7 +345,6 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
 
             {/* Expenses Management */}
             <div className="pt-2 border-t border-gray-100">
-                {/* ... existing expense logic ... */}
                 <div className="flex justify-between items-center mb-2">
                     <label className="block text-xs font-bold text-gray-500 uppercase">
                         {editingExpenseId ? 'Editando Gasto' : 'Adicionar Gastos'}
@@ -459,7 +469,7 @@ export const ShiftTimer: React.FC<Props> = ({ currentShift, onStartShift, onUpda
                 ) : (
                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
                 )}
-                <span className={`text-[10px] font-bold tracking-widest uppercase ${gpsStatus === 'active' ? 'text-emerald-400' : 'text-red-400'}`}>
+                <span className="text-[10px] font-bold tracking-widest uppercase">
                   {gpsStatus === 'active' ? 'GPS Ativo' : gpsStatus === 'searching' ? 'Buscando GPS...' : 'Sem Sinal'}
                 </span>
             </div>

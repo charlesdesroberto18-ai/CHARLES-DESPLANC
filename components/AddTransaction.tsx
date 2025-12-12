@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { TransactionType, Category } from '../types';
-import { CheckCircle, XCircle, Camera, Loader2, Sparkles } from 'lucide-react';
+import { CheckCircle, XCircle, Camera, Loader2, Sparkles, Calendar } from 'lucide-react';
 import { analyzeReceiptFromImage } from '../services/geminiService';
 
 interface Props {
-  onAdd: (amount: number, type: TransactionType, category: Category, desc: string) => void;
+  onAdd: (amount: number, type: TransactionType, category: Category, desc: string, date: string) => void;
   onCancel: () => void;
 }
 
@@ -13,6 +13,7 @@ export const AddTransaction: React.FC<Props> = ({ onAdd, onCancel }) => {
   const [type, setType] = useState<TransactionType>('income');
   const [category, setCategory] = useState<Category>(Category.DELIVERY);
   const [description, setDescription] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]); // Default today YYYY-MM-DD
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -20,7 +21,7 @@ export const AddTransaction: React.FC<Props> = ({ onAdd, onCancel }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount) return;
-    onAdd(parseFloat(amount), type, category, description);
+    onAdd(parseFloat(amount), type, category, description, date);
   };
 
   const handleCameraClick = () => {
@@ -50,6 +51,15 @@ export const AddTransaction: React.FC<Props> = ({ onAdd, onCancel }) => {
                 setType('expense'); // Receipts are usually expenses
             }
             if (result.description) setDescription(result.description);
+            if (result.date) {
+                // Try to parse returned ISO date to YYYY-MM-DD
+                try {
+                    const parsedDate = new Date(result.date).toISOString().split('T')[0];
+                    setDate(parsedDate);
+                } catch (e) {
+                    console.warn("Invalid date from receipt", result.date);
+                }
+            }
             
             setIsAnalyzing(false);
         };
@@ -133,6 +143,21 @@ export const AddTransaction: React.FC<Props> = ({ onAdd, onCancel }) => {
             placeholder="0.00"
             autoFocus={!isAnalyzing}
           />
+        </div>
+        
+        {/* Date Input */}
+        <div>
+            <label className="block text-sm font-medium text-gray-500 mb-1">Data</label>
+            <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input 
+                    type="date"
+                    required
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full pl-10 p-3 bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-200 transition-all text-gray-800 font-medium"
+                />
+            </div>
         </div>
 
         {/* Category */}

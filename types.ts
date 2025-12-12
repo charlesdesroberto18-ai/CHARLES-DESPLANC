@@ -46,31 +46,6 @@ export interface Goal {
   deadline?: string;
   type: 'daily' | 'weekly' | 'monthly' | 'item'; 
   unit?: 'currency' | 'count'; // 'currency' for R$, 'count' for Deliveries
-  itemDescription?: string; // Para metas de equipamentos
-  itemValue?: number; // Valor do item
-  purchaseDate?: string; // Data planejada para compra
-}
-
-export interface MaintenanceSchedule {
-  id: string;
-  type: 'oil' | 'tires' | 'general' | 'custom';
-  description: string;
-  scheduledDate: string; // ISO String
-  reminderDayBefore: boolean;
-  reminderOnDay: boolean;
-  completed: boolean;
-  completedDate?: string;
-  notes?: string;
-}
-
-export interface Notification {
-  id: string;
-  type: 'maintenance' | 'goal' | 'reminder' | 'alert';
-  title: string;
-  message: string;
-  date: string; // ISO String
-  read: boolean;
-  actionUrl?: string;
 }
 
 export interface FinancialSummary {
@@ -81,4 +56,4 @@ export interface FinancialSummary {
   hoursWorked: number; // New metric
 }
 
-export type ViewState = 'dashboard' | 'calendar' | 'analytics' | 'history' | 'maintenance' | 'goals' | 'advisor' | 'notifications';
+export type ViewState = 'dashboard' | 'calendar' | 'goals' | 'advisor';
