@@ -92,14 +92,14 @@ export const ShiftHistoryView: React.FC<Props> = ({ shifts, onDeleteShift }) => 
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
         <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
           <p className="text-xs text-gray-400 font-bold uppercase mb-1">Turnos</p>
-          <p className="text-2xl font-black text-slate-800">{summary.totalShifts}</p>
+          <p className="text-xl lg:text-2xl font-black text-slate-800">{summary.totalShifts}</p>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
           <p className="text-xs text-gray-400 font-bold uppercase mb-1">Horas</p>
-          <p className="text-2xl font-black text-blue-600">{summary.totalHours.toFixed(1)}h</p>
+          <p className="text-xl lg:text-2xl font-black text-blue-600">{summary.totalHours.toFixed(1)}h</p>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
           <p className="text-xs text-gray-400 font-bold uppercase mb-1">Ganhos</p>

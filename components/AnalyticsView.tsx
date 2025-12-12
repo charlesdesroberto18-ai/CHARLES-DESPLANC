@@ -116,7 +116,7 @@ export const AnalyticsView: React.FC<Props> = ({ transactions, shifts }) => {
             <TrendingUp size={18} className="text-blue-600" />
             <h3 className="font-bold text-gray-800">Ganhos Diários (Últimos 7 dias)</h3>
           </div>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={300} minHeight={250}>
             <BarChart data={dailyEarnings}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="date" tick={{ fontSize: 12 }} />
@@ -135,7 +135,7 @@ export const AnalyticsView: React.FC<Props> = ({ transactions, shifts }) => {
             <Award size={18} className="text-orange-600" />
             <h3 className="font-bold text-gray-800">Eficiência por Turno</h3>
           </div>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={300} minHeight={250}>
             <LineChart data={shiftEfficiency}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="date" tick={{ fontSize: 12 }} />
@@ -156,7 +156,7 @@ export const AnalyticsView: React.FC<Props> = ({ transactions, shifts }) => {
             <Calendar size={18} className="text-purple-600" />
             <h3 className="font-bold text-gray-800">Gastos por Categoria</h3>
           </div>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={300} minHeight={250}>
             <PieChart>
               <Pie
                 data={categoryBreakdown}

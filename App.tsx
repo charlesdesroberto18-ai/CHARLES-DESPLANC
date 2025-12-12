@@ -426,7 +426,9 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-gray-50 relative shadow-2xl overflow-hidden font-sans">
+    <div className="w-full min-h-screen bg-gray-50 relative overflow-hidden font-sans flex flex-col lg:flex-row">
+      {/* Main Content Container */}
+      <div className="flex-1 max-w-full lg:max-w-4xl mx-auto w-full">
       {activeNotification && <ToastNotification {...activeNotification} onClose={() => setActiveNotification(null)} />}
       {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onLogout={handleLogout} onClearAllData={handleClearAllData} user={user} transactions={transactions} shifts={shifts} />}
       {showShiftSummary && lastCompletedShift && <ShiftSummaryModal shift={lastCompletedShift} onClose={() => setShowShiftSummary(false)} />}
@@ -444,6 +446,7 @@ const App: React.FC = () => {
       )}
 
       {!isAddingTransaction && <BottomNav currentView={view} onChangeView={setView} />}
+      </div>
       
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
