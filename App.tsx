@@ -12,16 +12,7 @@ import { ShiftList } from './components/ShiftList';
 import { ToastNotification, NotificationProps } from './components/ToastNotification';
 import { LoginScreen } from './components/LoginScreen';
 import { SettingsModal } from './components/SettingsModal';
-import { ShiftSummaryModal } from './components/ShiftSummaryModal';
-import { AnalyticsView } from './components/AnalyticsView';
-import { ShiftHistoryView } from './components/ShiftHistoryView';
-import { MaintenanceAlertView } from './components/MaintenanceAlertView';
-import { MaintenanceAlertViewEnhanced } from './components/MaintenanceAlertViewEnhanced';
-import { NotificationsPanel } from './components/NotificationsPanel';
-import { MaintenanceSchedulerModal } from './components/MaintenanceSchedulerModal';
-import { GoalTrackerEnhanced } from './components/GoalTrackerEnhanced';
 import { Plus, Eye, EyeOff, Activity, Settings } from 'lucide-react';
-import { MaintenanceSchedule, Notification } from './types';
 
 // Helper: Haversine Formula
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -50,33 +41,43 @@ const App: React.FC = () => {
   const [activeNotification, setActiveNotification] = useState<Omit<NotificationProps, 'onClose'> | null>(null);
   const [isFocusMode, setIsFocusMode] = useState(false);
   
+  // Install Prompt State
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  
   // Data State - Initialized empty, loaded via useEffect based on user
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
-  const [lastCompletedShift, setLastCompletedShift] = useState<Shift | null>(null);
-  const [showShiftSummary, setShowShiftSummary] = useState(false);
 
   // GPS Tracking State
   const [liveKm, setLiveKm] = useState(0);
   const [gpsStatus, setGpsStatus] = useState<'searching' | 'active' | 'error' | 'off'>('off');
-  const [vehicleOdometer, setVehicleOdometer] = useState<number>(() => {
-    const saved = localStorage.getItem('entregaPro_vehicle_odometer');
-    return saved ? parseFloat(saved) : 0;
-  });
-  const [maintenanceSchedules, setMaintenanceSchedules] = useState<MaintenanceSchedule[]>(() => {
-    const saved = localStorage.getItem('entregaPro_maintenance_schedules');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [notifications, setNotifications] = useState<Notification[]>(() => {
-    const saved = localStorage.getItem('entregaPro_notifications');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [showMaintenanceScheduler, setShowMaintenanceScheduler] = useState(false);
   const lastPositionRef = useRef<{lat: number, lng: number} | null>(null);
   const watchIdRef = useRef<number | null>(null);
+
+  // --- PWA INSTALLATION LISTENER ---
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallApp = () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      installPrompt.userChoice.then((choiceResult: { outcome: string }) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the install prompt');
+        }
+        setInstallPrompt(null);
+      });
+    }
+  };
 
   // --- DATA LOADING & PERSISTENCE ---
   
@@ -243,27 +244,6 @@ const App: React.FC = () => {
       setShifts(prev => prev.filter(s => s.id !== id));
   };
 
-  const handleUpdateVehicleOdometer = (newOdometer: number) => {
-    setVehicleOdometer(newOdometer);
-    localStorage.setItem('entregaPro_vehicle_odometer', newOdometer.toString());
-  };
-
-  const handleClearAllData = () => {
-    if (window.confirm('Tem certeza que deseja apagar TODOS os seus dados? Esta ação é irreversível.')) {
-        localStorage.removeItem('entregaPro_transactions');
-        localStorage.removeItem('entregaPro_goals');
-        localStorage.removeItem('entregaPro_shifts');
-        localStorage.removeItem('entregaPro_current_shift');
-        localStorage.removeItem('entregaPro_vehicle_odometer');
-        setTransactions([]);
-        setGoals([]);
-        setShifts([]);
-        setCurrentShift(null);
-        setVehicleOdometer(0);
-        setActiveNotification({ type: 'success', message: 'Todos os dados foram zerados com sucesso!' });
-    }
-  };
-
   const handleEndShift = (data: { earnings: number; expenses: { category: Category; amount: number }[]; deliveries: number; km: number, endTime: string, startTime?: string }) => {
     const startIso = data.startTime || (currentShift ? currentShift.startTime : new Date().toISOString());
     const startTimeMs = new Date(startIso).getTime();
@@ -284,9 +264,6 @@ const App: React.FC = () => {
     };
 
     setShifts(prev => [...prev, completedShift]);
-    setLastCompletedShift(completedShift);
-    setShowShiftSummary(true);
-    
     if (currentShift) {
         setCurrentShift(null);
         setLiveKm(0);
@@ -300,14 +277,22 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAddTransaction = (amount: number, type: TransactionType, category: Category, description: string, shiftId?: string) => {
+  const handleAddTransaction = (amount: number, type: TransactionType, category: Category, description: string, shiftId?: string, customDate?: string) => {
+    let dateStr = new Date().toISOString();
+    if (customDate) {
+        const d = new Date(customDate);
+        const now = new Date();
+        d.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+        dateStr = d.toISOString();
+    }
+
     const newTx: Transaction = {
       id: Date.now().toString() + Math.random(),
       amount,
       type,
       category,
       description,
-      date: new Date().toISOString(),
+      date: dateStr,
       shiftId: shiftId || currentShift?.id
     };
     setTransactions(prev => [...prev, newTx]);
@@ -330,7 +315,7 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     if (isAddingTransaction) {
-        return <AddTransaction onAdd={(amt, type, cat, desc) => handleAddTransaction(amt, type, cat, desc)} onCancel={() => setIsAddingTransaction(false)} />;
+        return <AddTransaction onAdd={(amt, type, cat, desc, date) => handleAddTransaction(amt, type, cat, desc, undefined, date)} onCancel={() => setIsAddingTransaction(false)} />;
     }
 
     switch (view) {
@@ -414,24 +399,25 @@ const App: React.FC = () => {
         return <GoalTracker goals={goals} transactions={transactions} shifts={shifts} onAddGoal={(g) => setGoals(prev => [...prev, g])} onDeleteGoal={(id) => setGoals(prev => prev.filter(g => g.id !== id))} />;
       case 'advisor':
         return <GeminiAdvisor transactions={transactions} shifts={shifts} goals={goals} />;
-      case 'analytics':
-        return <AnalyticsView transactions={transactions} shifts={shifts} />;
-      case 'history':
-        return <ShiftHistoryView shifts={shifts} onDeleteShift={handleDeleteShift} />;
-      case 'maintenance':
-        return <MaintenanceAlertViewEnhanced shifts={shifts} currentOdometer={vehicleOdometer} onOdometerChange={handleUpdateVehicleOdometer} />;
       default:
         return null;
     }
   };
 
   return (
-    <div className="w-full min-h-screen bg-gray-50 relative overflow-hidden font-sans flex flex-col lg:flex-row">
-      {/* Main Content Container */}
-      <div className="flex-1 max-w-full lg:max-w-4xl mx-auto w-full">
+    <div className="max-w-md mx-auto min-h-screen bg-gray-50 relative shadow-2xl overflow-hidden font-sans">
       {activeNotification && <ToastNotification {...activeNotification} onClose={() => setActiveNotification(null)} />}
-      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onLogout={handleLogout} onClearAllData={handleClearAllData} user={user} transactions={transactions} shifts={shifts} />}
-      {showShiftSummary && lastCompletedShift && <ShiftSummaryModal shift={lastCompletedShift} onClose={() => setShowShiftSummary(false)} />}
+      {isSettingsOpen && (
+        <SettingsModal 
+            onClose={() => setIsSettingsOpen(false)} 
+            onLogout={handleLogout} 
+            user={user} 
+            transactions={transactions} 
+            shifts={shifts}
+            installPrompt={installPrompt}
+            onInstall={handleInstallApp}
+        />
+      )}
       
       {renderContent()}
       
@@ -446,7 +432,6 @@ const App: React.FC = () => {
       )}
 
       {!isAddingTransaction && <BottomNav currentView={view} onChangeView={setView} />}
-      </div>
       
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
