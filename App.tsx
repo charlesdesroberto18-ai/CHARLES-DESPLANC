@@ -17,7 +17,11 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { ShiftHistoryView } from './components/ShiftHistoryView';
 import { MaintenanceAlertView } from './components/MaintenanceAlertView';
 import { MaintenanceAlertViewEnhanced } from './components/MaintenanceAlertViewEnhanced';
+import { NotificationsPanel } from './components/NotificationsPanel';
+import { MaintenanceSchedulerModal } from './components/MaintenanceSchedulerModal';
+import { GoalTrackerEnhanced } from './components/GoalTrackerEnhanced';
 import { Plus, Eye, EyeOff, Activity, Settings } from 'lucide-react';
+import { MaintenanceSchedule, Notification } from './types';
 
 // Helper: Haversine Formula
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -62,6 +66,15 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('entregaPro_vehicle_odometer');
     return saved ? parseFloat(saved) : 0;
   });
+  const [maintenanceSchedules, setMaintenanceSchedules] = useState<MaintenanceSchedule[]>(() => {
+    const saved = localStorage.getItem('entregaPro_maintenance_schedules');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    const saved = localStorage.getItem('entregaPro_notifications');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [showMaintenanceScheduler, setShowMaintenanceScheduler] = useState(false);
   const lastPositionRef = useRef<{lat: number, lng: number} | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
@@ -235,6 +248,22 @@ const App: React.FC = () => {
     localStorage.setItem('entregaPro_vehicle_odometer', newOdometer.toString());
   };
 
+  const handleClearAllData = () => {
+    if (window.confirm('Tem certeza que deseja apagar TODOS os seus dados? Esta ação é irreversível.')) {
+        localStorage.removeItem('entregaPro_transactions');
+        localStorage.removeItem('entregaPro_goals');
+        localStorage.removeItem('entregaPro_shifts');
+        localStorage.removeItem('entregaPro_current_shift');
+        localStorage.removeItem('entregaPro_vehicle_odometer');
+        setTransactions([]);
+        setGoals([]);
+        setShifts([]);
+        setCurrentShift(null);
+        setVehicleOdometer(0);
+        setActiveNotification({ type: 'success', message: 'Todos os dados foram zerados com sucesso!' });
+    }
+  };
+
   const handleEndShift = (data: { earnings: number; expenses: { category: Category; amount: number }[]; deliveries: number; km: number, endTime: string, startTime?: string }) => {
     const startIso = data.startTime || (currentShift ? currentShift.startTime : new Date().toISOString());
     const startTimeMs = new Date(startIso).getTime();
@@ -399,7 +428,7 @@ const App: React.FC = () => {
   return (
     <div className="max-w-md mx-auto min-h-screen bg-gray-50 relative shadow-2xl overflow-hidden font-sans">
       {activeNotification && <ToastNotification {...activeNotification} onClose={() => setActiveNotification(null)} />}
-      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onLogout={handleLogout} user={user} transactions={transactions} shifts={shifts} />}
+      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onLogout={handleLogout} onClearAllData={handleClearAllData} user={user} transactions={transactions} shifts={shifts} />}
       {showShiftSummary && lastCompletedShift && <ShiftSummaryModal shift={lastCompletedShift} onClose={() => setShowShiftSummary(false)} />}
       
       {renderContent()}

@@ -5,12 +5,13 @@ import { Transaction, Shift } from '../types';
 interface Props {
   onClose: () => void;
   onLogout: () => void;
+  onClearAllData: () => void; // Nova prop
   user: { name: string; email: string; photo?: string };
   transactions: Transaction[];
   shifts: Shift[];
 }
 
-export const SettingsModal: React.FC<Props> = ({ onClose, onLogout, user, transactions, shifts }) => {
+export const SettingsModal: React.FC<Props> = ({ onClose, onLogout, onClearAllData, user, transactions, shifts }) => {
   
   const handleExportCSV = (type: 'transactions' | 'shifts') => {
     let csvContent = "data:text/csv;charset=utf-8,";
@@ -110,15 +111,27 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onLogout, user, transa
                     </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-100">
-                    <button 
-                        onClick={onLogout}
-                        className="w-full py-3 rounded-xl text-red-600 font-bold hover:bg-red-50 flex items-center justify-center gap-2 transition-colors"
-                    >
-                        <LogOut size={18} />
-                        Sair da Conta
-                    </button>
-                </div>
+	                <div className="pt-4 border-t border-gray-100">
+	                    <button 
+	                        onClick={() => {
+	                            if (window.confirm('ATENÇÃO: Isso apagará TODOS os seus dados (transações, turnos, metas, quilometragem) permanentemente. Deseja continuar?')) {
+	                                onClearAllData();
+	                                onClose();
+	                            }
+	                        }}
+	                        className="w-full py-3 rounded-xl text-red-600 font-bold hover:bg-red-50 flex items-center justify-center gap-2 transition-colors"
+	                    >
+	                        <Database size={18} />
+	                        Zerar Todos os Dados
+	                    </button>
+	                    <button 
+	                        onClick={onLogout}
+	                        className="w-full py-3 rounded-xl text-red-600 font-bold hover:bg-red-50 flex items-center justify-center gap-2 transition-colors"
+	                    >
+	                        <LogOut size={18} />
+	                        Sair da Conta
+	                    </button>
+	                </div>
 
                 <div className="text-center">
                     <p className="text-[10px] text-gray-300">
