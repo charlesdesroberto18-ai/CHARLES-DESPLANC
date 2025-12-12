@@ -18,6 +18,7 @@ import { ShiftHistoryView } from './components/ShiftHistoryView';
 import { MaintenanceAlertView } from './components/MaintenanceAlertView';
 import { MaintenanceAlertViewEnhanced } from './components/MaintenanceAlertViewEnhanced';
 import { NotificationsPanel } from './components/NotificationsPanel';
+import { NearbyMaintenanceLocations } from './components/NearbyMaintenanceLocations';
 import { MaintenanceSchedulerModal } from './components/MaintenanceSchedulerModal';
 import { GoalTrackerEnhanced } from './components/GoalTrackerEnhanced';
 import { Plus, Eye, EyeOff, Activity, Settings } from 'lucide-react';
@@ -443,7 +444,12 @@ const App: React.FC = () => {
       case 'history':
         return <div className="max-w-7xl mx-auto w-full"><ShiftHistoryView shifts={shifts} onDeleteShift={handleDeleteShift} /></div>;
       case 'maintenance':
-        return <div className="max-w-7xl mx-auto w-full"><MaintenanceAlertViewEnhanced shifts={shifts} currentOdometer={vehicleOdometer} onOdometerChange={handleUpdateVehicleOdometer} /></div>;
+        return (
+          <div className="max-w-7xl mx-auto w-full p-4 lg:p-8 pb-24 animate-fade-in">
+            <MaintenanceAlertViewEnhanced shifts={shifts} currentOdometer={vehicleOdometer} onOdometerChange={handleUpdateVehicleOdometer} />
+            <NearbyMaintenanceLocations />
+          </div>
+        );
       default:
         return null;
     }
