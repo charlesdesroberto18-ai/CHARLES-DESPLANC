@@ -255,13 +255,29 @@ const App: React.FC = () => {
         localStorage.removeItem('entregaPro_shifts');
         localStorage.removeItem('entregaPro_current_shift');
         localStorage.removeItem('entregaPro_vehicle_odometer');
+        localStorage.removeItem('entregaPro_maintenance_schedules');
+        localStorage.removeItem('entregaPro_notifications');
         setTransactions([]);
         setGoals([]);
         setShifts([]);
         setCurrentShift(null);
         setVehicleOdometer(0);
+        setMaintenanceSchedules([]);
+        setNotifications([]);
         setActiveNotification({ type: 'success', message: 'Todos os dados foram zerados com sucesso!' });
     }
+  };
+
+  const handleMarkNotificationAsRead = (id: string) => {
+    const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+    setNotifications(updated);
+    localStorage.setItem('entregaPro_notifications', JSON.stringify(updated));
+  };
+
+  const handleDeleteNotification = (id: string) => {
+    const updated = notifications.filter(n => n.id !== id);
+    setNotifications(updated);
+    localStorage.setItem('entregaPro_notifications', JSON.stringify(updated));
   };
 
   const handleEndShift = (data: { earnings: number; expenses: { category: Category; amount: number }[]; deliveries: number; km: number, endTime: string, startTime?: string }) => {
@@ -399,6 +415,14 @@ const App: React.FC = () => {
             ) : (
                 <>
                     <SummaryCards summary={summary} />
+                    <NotificationsPanel 
+                        notifications={notifications} 
+                        maintenanceSchedules={maintenanceSchedules} 
+                        goals={goals} 
+                        shifts={shifts}
+                        onMarkAsRead={handleMarkNotificationAsRead}
+                        onDeleteNotification={handleDeleteNotification}
+                    />
                     <ShiftList shifts={shifts} onDeleteShift={handleDeleteShift} />
                     <div className="mb-4">
                         <h3 className="text-sm font-bold text-gray-800 mb-3">Últimas Atividades</h3>
