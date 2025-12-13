@@ -12,15 +12,8 @@ import { ShiftList } from './components/ShiftList';
 import { ToastNotification, NotificationProps } from './components/ToastNotification';
 import { LoginScreen } from './components/LoginScreen';
 import { SettingsModal } from './components/SettingsModal';
-import { ShiftSummaryModal } from './components/ShiftSummaryModal';
-import { AnalyticsView } from './components/AnalyticsView';
-import { ShiftHistoryView } from './components/ShiftHistoryView';
-import { MaintenanceAlertView } from './components/MaintenanceAlertView';
-import { MaintenanceAlertViewEnhanced } from './components/MaintenanceAlertViewEnhanced';
-import { NotificationsPanel } from './components/NotificationsPanel';
+
 import { NearbyMaintenanceLocations } from './components/NearbyMaintenanceLocations';
-import { MaintenanceSchedulerModal } from './components/MaintenanceSchedulerModal';
-import { GoalTrackerEnhanced } from './components/GoalTrackerEnhanced';
 import { Plus, Eye, EyeOff, Activity, Settings } from 'lucide-react';
 import { MaintenanceSchedule, Notification } from './types';
 
