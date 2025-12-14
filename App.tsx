@@ -409,14 +409,6 @@ const App: React.FC = () => {
             ) : (
                 <>
                     <SummaryCards summary={summary} />
-                    <NotificationsPanel 
-                        notifications={notifications} 
-                        maintenanceSchedules={maintenanceSchedules} 
-                        goals={goals} 
-                        shifts={shifts}
-                        onMarkAsRead={handleMarkNotificationAsRead}
-                        onDeleteNotification={handleDeleteNotification}
-                    />
                     <ShiftList shifts={shifts} onDeleteShift={handleDeleteShift} />
                     <div className="mb-4">
                         <h3 className="text-sm font-bold text-gray-800 mb-3">Últimas Atividades</h3>
@@ -433,13 +425,13 @@ const App: React.FC = () => {
       case 'advisor':
         return <div className="max-w-7xl mx-auto w-full"><GeminiAdvisor transactions={transactions} shifts={shifts} goals={goals} /></div>;
       case 'analytics':
-        return <div className="max-w-7xl mx-auto w-full"><AnalyticsView transactions={transactions} shifts={shifts} /></div>;
+        return <div className="max-w-7xl mx-auto w-full p-4"><h2 className="text-2xl font-bold text-gray-800 mb-4">Análises</h2><p className="text-gray-600">Funcionalidade em desenvolvimento.</p></div>;
       case 'history':
-        return <div className="max-w-7xl mx-auto w-full"><ShiftHistoryView shifts={shifts} onDeleteShift={handleDeleteShift} /></div>;
+        return <div className="max-w-7xl mx-auto w-full p-4"><h2 className="text-2xl font-bold text-gray-800 mb-4">Histórico</h2><ShiftList shifts={shifts} onDeleteShift={handleDeleteShift} /></div>;
       case 'maintenance':
         return (
           <div className="max-w-7xl mx-auto w-full p-4 lg:p-8 pb-24 animate-fade-in">
-            <MaintenanceAlertViewEnhanced shifts={shifts} currentOdometer={vehicleOdometer} onOdometerChange={handleUpdateVehicleOdometer} />
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Manutenção</h2>
             <NearbyMaintenanceLocations />
           </div>
         );
@@ -454,7 +446,7 @@ const App: React.FC = () => {
       <div className="flex-1 w-full min-h-screen flex flex-col lg:ml-20">
       {activeNotification && <ToastNotification {...activeNotification} onClose={() => setActiveNotification(null)} />}
       {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onLogout={handleLogout} onClearAllData={handleClearAllData} user={user} transactions={transactions} shifts={shifts} />}
-      {showShiftSummary && lastCompletedShift && <ShiftSummaryModal shift={lastCompletedShift} onClose={() => setShowShiftSummary(false)} />}
+
       
       {renderContent()}
       
