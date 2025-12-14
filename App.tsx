@@ -14,6 +14,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { SettingsModal } from './components/SettingsModal';
 
 import { NearbyMaintenanceLocations } from './components/NearbyMaintenanceLocations';
+import { AnalyticsView } from './components/AnalyticsView';
 import { Plus, Eye, EyeOff, Activity, Settings } from 'lucide-react';
 import { MaintenanceSchedule, Notification } from './types';
 
@@ -425,7 +426,7 @@ const App: React.FC = () => {
       case 'advisor':
         return <div className="max-w-7xl mx-auto w-full"><GeminiAdvisor transactions={transactions} shifts={shifts} goals={goals} /></div>;
       case 'analytics':
-        return <div className="max-w-7xl mx-auto w-full p-4"><h2 className="text-2xl font-bold text-gray-800 mb-4">Análises</h2><p className="text-gray-600">Funcionalidade em desenvolvimento.</p></div>;
+        return <div className="max-w-7xl mx-auto w-full"><AnalyticsView transactions={transactions} shifts={shifts} /></div>;
       case 'history':
         return <div className="max-w-7xl mx-auto w-full p-4"><h2 className="text-2xl font-bold text-gray-800 mb-4">Histórico</h2><ShiftList shifts={shifts} onDeleteShift={handleDeleteShift} /></div>;
       case 'maintenance':
