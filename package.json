@@ -1,20 +1,27 @@
 {
-  "name": "copy-of-entregapro",
+  "name": "entregapro",
+  "description": "Aplicativo de gerenciamento financeiro e operacional para entregadores profissionais",
+  "author": "Charles Roberto",
   "private": true,
-  "version": "0.0.1",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node server.js",
+    "serve": "npm run build && npm run start",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^1.31.0",
-    "recharts": "^3.5.1",
-    "react-markdown": "^10.1.0",
-    "react-dom": "^19.2.1",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
     "lucide-react": "^0.556.0",
-    "react": "^19.2.1"
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "react-markdown": "^10.1.0",
+    "recharts": "^3.5.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
