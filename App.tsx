@@ -413,7 +413,7 @@ const App: React.FC = () => {
                     <ShiftList shifts={shifts} onDeleteShift={handleDeleteShift} />
                     <div className="mb-4">
                         <h3 className="text-sm font-bold text-gray-800 mb-3">Últimas Atividades</h3>
-                        <TransactionList transactions={transactions.slice(-5)} />
+                        <TransactionList transactions={transactions.slice(-5)} showHeader={false} />
                     </div>
                 </>
             )}

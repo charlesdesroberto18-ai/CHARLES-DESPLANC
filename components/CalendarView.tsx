@@ -127,7 +127,7 @@ export const CalendarView: React.FC<Props> = ({ transactions }) => {
         )}
       </div>
 
-      <TransactionList transactions={selectedTransactions} />
+      <TransactionList transactions={selectedTransactions} enableFilters showHeader={false} />
     </div>
   );
 };
